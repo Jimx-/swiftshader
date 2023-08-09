@@ -63,13 +63,13 @@ class ScopedSetEnvVar
 {
 public:
 	ScopedSetEnvVar(std::string name)
-	    : name(name)
+		: name(name)
 	{
 		assert(!name.empty());
 	}
 
 	ScopedSetEnvVar(std::string name, std::string value)
-	    : name(name)
+		: name(name)
 	{
 		set(value);
 	}
@@ -167,39 +167,39 @@ std::vector<const char *> getDriverPaths()
 #	elif defined(NDEBUG)
 #		if defined(_WIN64)
 	return { "./build/Release_x64/vk_swiftshader.dll",
-		     "./build/Release/vk_swiftshader.dll",
-		     "./build/RelWithDebInfo/vk_swiftshader.dll",
-		     "./build/vk_swiftshader.dll",
-		     "./vk_swiftshader.dll" };
+			 "./build/Release/vk_swiftshader.dll",
+			 "./build/RelWithDebInfo/vk_swiftshader.dll",
+			 "./build/vk_swiftshader.dll",
+			 "./vk_swiftshader.dll" };
 #		else
 	return { "./build/Release_Win32/vk_swiftshader.dll",
-		     "./build/Release/vk_swiftshader.dll",
-		     "./build/RelWithDebInfo/vk_swiftshader.dll",
-		     "./build/vk_swiftshader.dll",
-		     "./vk_swiftshader.dll" };
+			 "./build/Release/vk_swiftshader.dll",
+			 "./build/RelWithDebInfo/vk_swiftshader.dll",
+			 "./build/vk_swiftshader.dll",
+			 "./vk_swiftshader.dll" };
 #		endif
 #	else
 #		if defined(_WIN64)
 	return { "./build/Debug_x64/vk_swiftshader.dll",
-		     "./build/Debug/vk_swiftshader.dll",
-		     "./build/vk_swiftshader.dll",
-		     "./vk_swiftshader.dll" };
+			 "./build/Debug/vk_swiftshader.dll",
+			 "./build/vk_swiftshader.dll",
+			 "./vk_swiftshader.dll" };
 #		else
 	return { "./build/Debug_Win32/vk_swiftshader.dll",
-		     "./build/Debug/vk_swiftshader.dll",
-		     "./build/vk_swiftshader.dll",
-		     "./vk_swiftshader.dll" };
+			 "./build/Debug/vk_swiftshader.dll",
+			 "./build/vk_swiftshader.dll",
+			 "./vk_swiftshader.dll" };
 #		endif
 #	endif
 #elif OS_MAC
 	return { "./build/Darwin/libvk_swiftshader.dylib",
-		     "swiftshader/libvk_swiftshader.dylib",
-		     "libvk_swiftshader.dylib" };
+			 "swiftshader/libvk_swiftshader.dylib",
+			 "libvk_swiftshader.dylib" };
 #elif OS_LINUX
 	return { "./build/Linux/libvk_swiftshader.so",
-		     "swiftshader/libvk_swiftshader.so",
-		     "./libvk_swiftshader.so",
-		     "libvk_swiftshader.so" };
+			 "swiftshader/libvk_swiftshader.so",
+			 "./libvk_swiftshader.so",
+			 "libvk_swiftshader.so" };
 #elif OS_ANDROID || OS_FUCHSIA
 	return
 	{
@@ -268,10 +268,13 @@ void VulkanTester::initialize()
 	{
 		VK_KHR_SURFACE_EXTENSION_NAME,
 #if USE_HEADLESS_SURFACE
-		    VK_EXT_HEADLESS_SURFACE_EXTENSION_NAME,
+			VK_EXT_HEADLESS_SURFACE_EXTENSION_NAME,
+#endif
+#if defined(VK_USE_PLATFORM_XCB_KHR)
+			VK_KHR_XCB_SURFACE_EXTENSION_NAME,
 #endif
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
-		    VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+			VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
 #endif
 	};
 #if ENABLE_VALIDATION_LAYERS
@@ -308,20 +311,20 @@ void VulkanTester::initialize()
 	{
 		vk::DebugUtilsMessengerCreateInfoEXT debugInfo;
 		debugInfo.messageSeverity =
-		    // vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
-		    vk::DebugUtilsMessageSeverityFlagBitsEXT::eError |
-		    vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning;
+			// vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
+			vk::DebugUtilsMessageSeverityFlagBitsEXT::eError |
+			vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning;
 
 		debugInfo.messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
-		                        vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
-		                        vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
+								vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
+								vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
 
 		PFN_vkDebugUtilsMessengerCallbackEXT debugInfoCallback =
-		    [](
-		        VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-		        VkDebugUtilsMessageTypeFlagsEXT messageTypes,
-		        const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-		        void *pUserData) -> VkBool32 {
+			[](
+				VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+				VkDebugUtilsMessageTypeFlagsEXT messageTypes,
+				const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
+				void *pUserData) -> VkBool32 {
 			// assert(false);
 			std::cerr << "[DebugInfoCallback] " << pCallbackData->pMessage << std::endl;
 			return VK_FALSE;

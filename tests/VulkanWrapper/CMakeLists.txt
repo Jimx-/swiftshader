@@ -12,6 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+option(USE_XCB_WINDOW "Enable XCB window support" OFF)
+if (USE_XCB_WINDOW)
+   add_definitions(-DUSE_XCB_WINDOW)
+endif (USE_XCB_WINDOW)
+
 set(ROOT_PROJECT_COMPILE_OPTIONS
 )
 
@@ -78,9 +83,14 @@ target_link_options(VulkanWrapper
         ${SWIFTSHADER_LINK_FLAGS}
 )
 
+if (USE_XCB_WINDOW)
+   set(VULKAN_WRAPPER_LINK_LIBRARIES xcb)
+endif (USE_XCB_WINDOW)
+
 target_link_libraries(VulkanWrapper
     PUBLIC
         glslang
         glslang-default-resource-limits
         SPIRV
+        ${VULKAN_WRAPPER_LINK_LIBRARIES}
 )

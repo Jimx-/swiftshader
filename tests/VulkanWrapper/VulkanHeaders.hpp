@@ -19,7 +19,7 @@
 #	define USE_HEADLESS_SURFACE 0
 #endif
 
-#if !defined(_WIN32)
+#if !defined(_WIN32) && !defined(USE_XCB_WINDOW)
 // @TODO: implement native Window support for current platform. For now, always use HeadlessSurface.
 #	undef USE_HEADLESS_SURFACE
 #	define USE_HEADLESS_SURFACE 1
@@ -27,6 +27,9 @@
 
 #if defined(_WIN32)
 #	define VK_USE_PLATFORM_WIN32_KHR
+#endif
+#if defined(USE_XCB_WINDOW)
+#	define VK_USE_PLATFORM_XCB_KHR
 #endif
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 #define VULKAN_HPP_NO_NODISCARD_WARNINGS
