@@ -75,3 +75,49 @@ target_link_libraries(vk-unittests
         VulkanWrapper
         ${ROOT_PROJECT_LINK_LIBRARIES}
 )
+
+set(VULKAN_TRIANGLE_SRC_FILES
+    DrawTriangle.cpp
+)
+
+add_executable(vk-triangle
+    ${VULKAN_TRIANGLE_SRC_FILES}
+)
+
+add_dependencies(vk-triangle
+    vk_swiftshader
+)
+
+set_target_properties(vk-triangle PROPERTIES
+    FOLDER "Tests"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+)
+
+target_include_directories(vk-triangle
+    PRIVATE
+        "${SWIFTSHADER_DIR}/include"
+)
+
+target_compile_definitions(vk-triangle
+    PRIVATE
+        "STANDALONE"
+)
+
+target_compile_options(vk-triangle
+    PRIVATE
+        ${ROOT_PROJECT_COMPILE_OPTIONS}
+)
+
+target_link_options(vk-triangle
+    PRIVATE
+        ${SWIFTSHADER_LINK_FLAGS}
+)
+
+target_link_libraries(vk-triangle
+    PRIVATE
+        gtest
+        gmock
+        SPIRV-Tools
+        VulkanWrapper
+        ${ROOT_PROJECT_LINK_LIBRARIES}
+)

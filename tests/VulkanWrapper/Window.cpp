@@ -17,7 +17,7 @@
 #if USE_HEADLESS_SURFACE
 
 Window::Window(vk::Instance instance, vk::Extent2D windowSize)
-    : instance(instance)
+	: instance(instance)
 {
 	vk::HeadlessSurfaceCreateInfoEXT surfaceCreateInfo;
 	surface = instance.createHeadlessSurfaceEXT(surfaceCreateInfo);
@@ -41,7 +41,7 @@ void Window::show()
 #elif defined(_WIN32)
 
 Window::Window(vk::Instance instance, vk::Extent2D windowSize)
-    : instance(instance)
+	: instance(instance)
 {
 	windowClass.cbSize = sizeof(WNDCLASSEX);
 	windowClass.style = CS_HREDRAW | CS_VREDRAW;
@@ -72,11 +72,11 @@ Window::Window(vk::Instance instance, vk::Extent2D windowSize)
 	uint32_t y = (GetSystemMetrics(SM_CYSCREEN) - windowRect.bottom) / 2;
 
 	window = CreateWindowEx(extendedStyle, "Window", "Hello",
-	                        style | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
-	                        x, y,
-	                        windowRect.right - windowRect.left,
-	                        windowRect.bottom - windowRect.top,
-	                        NULL, NULL, moduleInstance, NULL);
+							style | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
+							x, y,
+							windowRect.right - windowRect.left,
+							windowRect.bottom - windowRect.top,
+							NULL, NULL, moduleInstance, NULL);
 
 	SetForegroundWindow(window);
 	SetFocus(window);
@@ -104,6 +104,60 @@ vk::SurfaceKHR Window::getSurface()
 void Window::show()
 {
 	ShowWindow(window, SW_SHOW);
+}
+
+#elif defined(USE_XCB_WINDOW)
+
+Window::Window(vk::Instance instance, vk::Extent2D windowSize)
+	: instance(instance)
+{
+	const char *title = "swiftshader";
+
+	connection = xcb_connect(NULL, NULL);
+
+	const xcb_setup_t *setup = xcb_get_setup(connection);
+	xcb_screen_iterator_t iter = xcb_setup_roots_iterator(setup);
+	xcb_screen_t *screen = iter.data;
+
+	xcb_window_t window = xcb_generate_id(connection);
+	xcb_create_window(connection,                          /* Connection          */
+					  XCB_COPY_FROM_PARENT,                /* depth (same as root)*/
+					  window,                              /* window Id           */
+					  screen->root,                        /* parent window       */
+					  0, 0,                                /* x, y                */
+					  windowSize.width, windowSize.height, /* width, height       */
+					  10,                                  /* border_width        */
+					  XCB_WINDOW_CLASS_INPUT_OUTPUT,       /* class               */
+					  screen->root_visual,                 /* visual              */
+					  0, NULL);                            /* masks, not used yet */
+
+	xcb_change_property(connection, XCB_PROP_MODE_REPLACE, window,
+						XCB_ATOM_WM_CLASS, XCB_ATOM_STRING, 8,
+						strlen(title), title);
+
+	xcb_map_window(connection, window);
+	xcb_flush(connection);
+
+	vk::XcbSurfaceCreateInfoKHR surfaceCreateInfo;
+	surfaceCreateInfo.connection = connection;
+	surfaceCreateInfo.window = window;
+	surface = instance.createXcbSurfaceKHR(surfaceCreateInfo);
+	assert(surface);
+}
+
+Window::~Window()
+{
+	instance.destroySurfaceKHR(surface, nullptr);
+	xcb_disconnect(connection);
+}
+
+vk::SurfaceKHR Window::getSurface()
+{
+	return surface;
+}
+
+void Window::show()
+{
 }
 
 #else

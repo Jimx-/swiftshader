@@ -22,6 +22,10 @@
 #	include <Windows.h>
 #endif
 
+#ifdef USE_XCB_WINDOW
+#	include <xcb/xcb.h>
+#endif
+
 #if USE_HEADLESS_SURFACE
 class Window
 {
@@ -50,6 +54,23 @@ private:
 	HWND window;
 	HINSTANCE moduleInstance;
 	WNDCLASSEX windowClass;
+	const vk::Instance instance;
+	vk::SurfaceKHR surface;
+};
+
+#elif defined(USE_XCB_WINDOW)
+
+class Window
+{
+public:
+	Window(vk::Instance instance, vk::Extent2D windowSize);
+	~Window();
+	vk::SurfaceKHR getSurface();
+	void show();
+
+private:
+	xcb_connection_t *connection;
+	xcb_window_t window;
 	const vk::Instance instance;
 	vk::SurfaceKHR surface;
 };
