@@ -2759,9 +2759,243 @@ RValue<Pointer<Byte>> ConstantPointer(const void *ptr);
 // Returns a reactor pointer to an immutable copy of the data of size bytes.
 RValue<Pointer<Byte>> ConstantData(const void *data, size_t size);
 
+template<>
+template<class S>
+Pointer<Int>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
+    : alignment(4)
+{
+	Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(Int::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<Int2>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
+    : alignment(4)
+{
+	Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(Int2::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<Int4>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
+    : alignment(4)
+{
+	Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(Int4::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<UInt>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
+    : alignment(4)
+{
+	Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(UInt::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<UInt2>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
+    : alignment(4)
+{
+	Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(UInt2::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<UInt4>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
+    : alignment(4)
+{
+	Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(UInt4::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<Float>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
+    : alignment(4)
+{
+	Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(Float::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<Float2>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
+    : alignment(4)
+{
+	Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(Float2::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<Float4>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
+    : alignment(4)
+{
+	Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(Float4::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<Int>::Pointer(const Pointer<S> &pointer, int alignment)
+    : alignment(4)
+{
+	Value *pointerS = pointer.loadValue();
+	Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(Int::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<Int2>::Pointer(const Pointer<S> &pointer, int alignment)
+    : alignment(4)
+{
+	Value *pointerS = pointer.loadValue();
+	Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(Int2::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<Int4>::Pointer(const Pointer<S> &pointer, int alignment)
+    : alignment(4)
+{
+	Value *pointerS = pointer.loadValue();
+	Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(Int4::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<UInt>::Pointer(const Pointer<S> &pointer, int alignment)
+    : alignment(4)
+{
+	Value *pointerS = pointer.loadValue();
+	Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(UInt::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<UInt2>::Pointer(const Pointer<S> &pointer, int alignment)
+    : alignment(4)
+{
+	Value *pointerS = pointer.loadValue();
+	Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(UInt2::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<UInt4>::Pointer(const Pointer<S> &pointer, int alignment)
+    : alignment(4)
+{
+	Value *pointerS = pointer.loadValue();
+	Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(UInt4::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<Float>::Pointer(const Pointer<S> &pointer, int alignment)
+    : alignment(4)
+{
+	Value *pointerS = pointer.loadValue();
+	Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(Float::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<Float2>::Pointer(const Pointer<S> &pointer, int alignment)
+    : alignment(4)
+{
+	Value *pointerS = pointer.loadValue();
+	Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(Float2::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<Float4>::Pointer(const Pointer<S> &pointer, int alignment)
+    : alignment(4)
+{
+	Value *pointerS = pointer.loadValue();
+	Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(Float4::type()));
+	this->storeValue(pointerT);
+}
+
 template<class T>
 Pointer<T>::Pointer(Argument<Pointer<T>> argument)
     : alignment(1)
+{
+	this->store(argument.rvalue());
+}
+
+template<>
+inline Pointer<Int>::Pointer(Argument<Pointer<Int>> argument)
+    : alignment(4)
+{
+	this->store(argument.rvalue());
+}
+
+template<>
+inline Pointer<Int2>::Pointer(Argument<Pointer<Int2>> argument)
+    : alignment(4)
+{
+	this->store(argument.rvalue());
+}
+
+template<>
+inline Pointer<Int4>::Pointer(Argument<Pointer<Int4>> argument)
+    : alignment(4)
+{
+	this->store(argument.rvalue());
+}
+
+template<>
+inline Pointer<UInt>::Pointer(Argument<Pointer<UInt>> argument)
+    : alignment(4)
+{
+	this->store(argument.rvalue());
+}
+
+template<>
+inline Pointer<UInt2>::Pointer(Argument<Pointer<UInt2>> argument)
+    : alignment(4)
+{
+	this->store(argument.rvalue());
+}
+
+template<>
+inline Pointer<UInt4>::Pointer(Argument<Pointer<UInt4>> argument)
+    : alignment(4)
+{
+	this->store(argument.rvalue());
+}
+
+template<>
+inline Pointer<Float>::Pointer(Argument<Pointer<Float>> argument)
+    : alignment(4)
+{
+	this->store(argument.rvalue());
+}
+
+template<>
+inline Pointer<Float2>::Pointer(Argument<Pointer<Float2>> argument)
+    : alignment(4)
+{
+	this->store(argument.rvalue());
+}
+
+template<>
+inline Pointer<Float4>::Pointer(Argument<Pointer<Float4>> argument)
+    : alignment(4)
 {
 	this->store(argument.rvalue());
 }

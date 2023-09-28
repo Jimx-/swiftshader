@@ -1,7 +1,8 @@
 ;;; Directory Local Variables
 ;;; See Info node `(emacs) Directory Variables' for more information.
 
-((c++-mode
+((nil . ((eval . (whitespace-mode 0))))
+ (c++-mode
   (tab-width . 4)
   (indent-tabs-mode . t)
   (c-basic-offset . 4)

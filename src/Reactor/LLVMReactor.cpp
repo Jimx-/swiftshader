@@ -571,7 +571,7 @@ std::shared_ptr<Routine> Nucleus::acquireRoutine(const char *name)
 		}
 #endif  // ENABLE_RR_DEBUG_INFO
 
-		if(false)
+		if(true)
 		{
 			std::error_code error;
 			llvm::raw_fd_ostream file(std::string(name) + "-llvm-dump-unopt.txt", error);
@@ -580,7 +580,7 @@ std::shared_ptr<Routine> Nucleus::acquireRoutine(const char *name)
 
 		jit->runPasses();
 
-		if(false)
+		if(true)
 		{
 			std::error_code error;
 			llvm::raw_fd_ostream file(std::string(name) + "-llvm-dump-opt.txt", error);
@@ -667,7 +667,7 @@ void Nucleus::setInsertBlock(BasicBlock *basicBlock)
 
 void Nucleus::createFunction(Type *ReturnType, const std::vector<Type *> &Params)
 {
-	jit->function = rr::createFunction("", T(ReturnType), T(Params));
+	jit->function = rr::createFunction("__jit_function", T(ReturnType), T(Params));
 
 #ifdef ENABLE_RR_DEBUG_INFO
 	jit->debugInfo = std::make_unique<DebugInfo>(jit->builder.get(), jit->context.get(), jit->module.get(), jit->function);
@@ -1893,11 +1893,11 @@ RValue<Int> SignMask(RValue<Byte8> x)
 
 //	RValue<Byte8> CmpGT(RValue<Byte8> x, RValue<Byte8> y)
 //	{
-//#if defined(__i386__) || defined(__x86_64__)
+// #if defined(__i386__) || defined(__x86_64__)
 //		return x86::pcmpgtb(x, y);   // FIXME: Signedness
-//#else
+// #else
 //		return As<Byte8>(V(lowerPCMP(llvm::ICmpInst::ICMP_SGT, V(x.value()), V(y.value()), T(Byte8::type()))));
-//#endif
+// #endif
 //	}
 
 RValue<Byte8> CmpEQ(RValue<Byte8> x, RValue<Byte8> y)
@@ -2442,11 +2442,11 @@ const UInt &operator--(UInt &val)  // Pre-decrement
 
 //	RValue<UInt> RoundUInt(RValue<Float> cast)
 //	{
-//#if defined(__i386__) || defined(__x86_64__)
+// #if defined(__i386__) || defined(__x86_64__)
 //		return x86::cvtss2si(val);   // FIXME: Unsigned
-//#else
+// #else
 //		return IfThenElse(cast > 0.0f, Int(cast + 0.5f), Int(cast - 0.5f));
-//#endif
+// #endif
 //	}
 
 Type *UInt::type()

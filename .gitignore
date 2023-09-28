@@ -9,6 +9,7 @@
 CMakeFiles/
 .idea/
 cmake-build-debug/
+.ccls-cache
 
 # Per user vscode config files.
 .vscode/launch.json
