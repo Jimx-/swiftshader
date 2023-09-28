@@ -42,7 +42,6 @@ VertexRoutine::~VertexRoutine()
 
 void VertexRoutine::generate()
 {
-	Pointer<Byte> cache = task + OFFSET(VertexTask, vertexCache);
 	Pointer<Byte> vertexCache = cache + OFFSET(VertexCache, vertex);
 	Pointer<UInt> tagCache = Pointer<UInt>(cache + OFFSET(VertexCache, tag));
 
@@ -54,34 +53,27 @@ void VertexRoutine::generate()
 	// On a cache miss, process a SIMD width of consecutive indices from the input batch. They're written to the cache
 	// in reverse order to guarantee that the first one doesn't get evicted and can be written out.
 
-	Do
+	UInt index = *batch;
+	UInt cacheIndex = index & VertexCache::TAG_MASK;
+
+	If(tagCache[cacheIndex] != index)
 	{
-		UInt index = *batch;
-		UInt cacheIndex = index & VertexCache::TAG_MASK;
+		readInput(batch);
+		program(batch, vertexCount);
+		computeClipFlags();
+		computeCullMask();
 
-		If(tagCache[cacheIndex] != index)
-		{
-			readInput(batch);
-			program(batch, vertexCount);
-			computeClipFlags();
-			computeCullMask();
-
-			writeCache(vertexCache, tagCache, batch);
-		}
-
-		Pointer<Byte> cacheEntry = vertexCache + cacheIndex * UInt((int)sizeof(Vertex));
-
-		// For points, vertexCount is 1 per primitive, so duplicate vertex for all 3 vertices of the primitive
-		for(int i = 0; i < (state.isPoint ? 3 : 1); i++)
-		{
-			writeVertex(vertex, cacheEntry);
-			vertex += sizeof(Vertex);
-		}
-
-		batch = Pointer<UInt>(Pointer<Byte>(batch) + sizeof(uint32_t));
-		vertexCount--;
+		writeCache(vertexCache, tagCache, batch);
 	}
-	Until(vertexCount == 0);
+
+	Pointer<Byte> cacheEntry = vertexCache + cacheIndex * UInt((int)sizeof(Vertex));
+
+	// For points, vertexCount is 1 per primitive, so duplicate vertex for all 3 vertices of the primitive
+	for(int i = 0; i < (state.isPoint ? 3 : 1); i++)
+	{
+		writeVertex(vertex, cacheEntry);
+		vertex += sizeof(Vertex);
+	}
 
 	Return();
 }
