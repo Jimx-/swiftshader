@@ -30,7 +30,7 @@ struct DrawData;
 // Basic direct mapped vertex cache.
 struct VertexCache
 {
-	static constexpr uint32_t SIZE = 64;            // TODO: Variable size?
+	static constexpr uint32_t SIZE = 4;             // TODO: Variable size?
 	static constexpr uint32_t TAG_MASK = SIZE - 1;  // Size must be power of 2.
 
 	void clear();
@@ -51,7 +51,7 @@ struct VertexTask
 	VertexCache vertexCache;
 };
 
-using VertexRoutineFunction = FunctionT<void(const vk::Device *device, Vertex *output, unsigned int *batch, VertexTask *vertextask, DrawData *draw, VertexCache *cache)>;
+using VertexRoutineFunction = FunctionT<void(const vk::Device *device, Vertex *output, unsigned int *batch, VertexTask *vertextask, DrawData *draw, VertexCache *cache, unsigned int index)>;
 
 class VertexProcessor
 {

@@ -630,7 +630,7 @@ void DrawCall::processVertices(vk::Device *device, DrawCall *draw, BatchData *ba
 	Vertex *vp = &batch->triangles.front().v0;
 	for(unsigned int i = 0; i < vertexTask.vertexCount; i++)
 	{
-		draw->vertexRoutine(device, vp + i, p + i, &vertexTask, draw->data, &vertexTask.vertexCache);
+		draw->vertexRoutine(device, vp, p, &vertexTask, draw->data, &vertexTask.vertexCache, i);
 	}
 }
 

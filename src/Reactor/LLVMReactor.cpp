@@ -2376,7 +2376,8 @@ const Int &operator--(Int &val)  // Pre-decrement
 RValue<Int> RoundInt(RValue<Float> cast)
 {
 	RR_DEBUG_INFO_UPDATE_LOC();
-#if defined(__i386__) || defined(__x86_64__)
+	// #if defined(__i386__) || defined(__x86_64__)
+#if 0
 	return x86::cvtss2si(cast);
 #else
 	return RValue<Int>(V(lowerRoundInt(V(cast.value()), T(Int::type()))));
