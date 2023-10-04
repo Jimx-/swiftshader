@@ -34,8 +34,17 @@ struct PlaneEquation  // z = A * x + B * y + C
 	float C;
 };
 
+struct EdgeEquation
+{
+	int A;
+	int B;
+	int C;
+};
+
 struct Primitive
 {
+	EdgeEquation edge[3];
+
 	int yMin;
 	int yMax;
 

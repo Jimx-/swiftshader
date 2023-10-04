@@ -35,6 +35,7 @@ public:
 	    , task(Arg<3>())
 	    , data(Arg<4>())
 	    , cache(Arg<5>())
+	    , index(Arg<6>())
 	{}
 	virtual ~VertexRoutinePrototype() {}
 
@@ -45,6 +46,7 @@ protected:
 	Pointer<Byte> task;
 	Pointer<Byte> data;
 	Pointer<Byte> cache;
+	UInt index;
 };
 
 class VertexRoutine : public VertexRoutinePrototype

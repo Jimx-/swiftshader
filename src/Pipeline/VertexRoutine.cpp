@@ -42,6 +42,8 @@ VertexRoutine::~VertexRoutine()
 
 void VertexRoutine::generate()
 {
+	Pointer<UInt> batch(Pointer<Byte>(this->batch) + UInt((int)sizeof(uint32_t)) * index);
+	Pointer<Byte> vertex(this->vertex + UInt((int)sizeof(Vertex)) * index);
 	Pointer<Byte> vertexCache = cache + OFFSET(VertexCache, vertex);
 	Pointer<UInt> tagCache = Pointer<UInt>(cache + OFFSET(VertexCache, tag));
 
@@ -53,10 +55,10 @@ void VertexRoutine::generate()
 	// On a cache miss, process a SIMD width of consecutive indices from the input batch. They're written to the cache
 	// in reverse order to guarantee that the first one doesn't get evicted and can be written out.
 
-	UInt index = *batch;
-	UInt cacheIndex = index & VertexCache::TAG_MASK;
+	UInt vertexIndex = *batch;
+	UInt cacheIndex = vertexIndex & VertexCache::TAG_MASK;
 
-	If(tagCache[cacheIndex] != index)
+	If(tagCache[cacheIndex] != vertexIndex)
 	{
 		readInput(batch);
 		program(batch, vertexCount);

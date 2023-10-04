@@ -132,7 +132,7 @@ private:
 		std::function<void(ThisType &tester, vk::CommandPool &commandPool, vk::DescriptorSet &descriptorSet)> updateDescriptorSet = [](auto &, auto &, auto &) {};
 	} hooks;
 
-	const vk::Extent2D windowSize = { 1280, 720 };
+	const vk::Extent2D windowSize = { 640, 480 };
 	const bool multisample;
 
 	std::unique_ptr<Window> window;
