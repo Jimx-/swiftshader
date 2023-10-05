@@ -161,6 +161,8 @@ Renderer::Renderer(vk::Device *device)
 	vertexProcessor.setRoutineCacheSize(1024);
 	pixelProcessor.setRoutineCacheSize(1024);
 	setupProcessor.setRoutineCacheSize(1024);
+
+	prebinningRoutine = prebinningProcessor.routine();
 }
 
 Renderer::~Renderer()
@@ -328,6 +330,14 @@ void Renderer::draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState
 		}
 	}
 
+	// Tiling
+	{
+		const VkViewport &viewport = preRasterizationState.getViewport();
+		data->tileSizeLog2 = 5;
+		data->tileStride = ((int)viewport.width + 31) / 32;
+		data->numTiles = data->tileStride * (((int)viewport.height + 31) / 32);
+	}
+
 	// Scissor
 	{
 		const VkRect2D &scissor = preRasterizationState.getScissor();
@@ -378,6 +388,7 @@ void Renderer::draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState
 
 		draw->setupState = setupState;
 		draw->setupRoutine = setupRoutine;
+		draw->prebinningRoutine = prebinningRoutine;
 		draw->pixelRoutine = pixelRoutine;
 		draw->setupPrimitives = setupPrimitives;
 		draw->fragmentPipelineLayout = fragmentState->getPipelineLayout();
@@ -514,6 +525,7 @@ void DrawCall::teardown(vk::Device *device)
 
 	vertexRoutine = {};
 	setupRoutine = {};
+	prebinningRoutine = {};
 	pixelRoutine = {};
 
 	if(preRasterizationContainsImageWrite)
@@ -583,6 +595,7 @@ void DrawCall::run(vk::Device *device, const marl::Loan<DrawCall> &draw, marl::T
 			if(!draw->data->rasterizerDiscard)
 			{
 				processPrimitives(device, draw.get(), batch.get());
+				processBinning(device, draw.get(), batch.get());
 
 				if(batch->numVisible > 0)
 				{
@@ -640,6 +653,19 @@ void DrawCall::processPrimitives(vk::Device *device, DrawCall *draw, BatchData *
 	auto triangles = &batch->triangles[0];
 	auto primitives = &batch->primitives[0];
 	batch->numVisible = draw->setupPrimitives(device, triangles, primitives, draw, batch->numPrimitives);
+}
+
+void DrawCall::processBinning(vk::Device *device, DrawCall *draw, BatchData *batch)
+{
+	MARL_SCOPED_EVENT("BINNING draw %d batch %d", draw->id, batch->id);
+	auto primCount = std::make_unique<unsigned int[]>(draw->data->numTiles);
+	auto primitives = &batch->primitives[0];
+
+	for(unsigned int i = 0; i < draw->data->numTiles; i++)
+		draw->prebinningRoutine(device, primitives, batch->numVisible, primCount.get(), draw->data, i);
+
+	for(unsigned int i = 1; i < draw->data->numTiles; i++)
+		primCount[i] += primCount[i - 1];
 }
 
 void DrawCall::processPixels(vk::Device *device, const marl::Loan<DrawCall> &draw, const marl::Loan<BatchData> &batch, const std::shared_ptr<marl::Finally> &finally)

@@ -16,6 +16,7 @@
 #define sw_Renderer_hpp
 
 #include "PixelProcessor.hpp"
+#include "PrebinningProcessor.hpp"
 #include "Primitive.hpp"
 #include "SetupProcessor.hpp"
 #include "VertexProcessor.hpp"
@@ -87,6 +88,10 @@ struct DrawData
 	float slopeDepthBias;
 	float depthBiasClamp;
 
+	unsigned int tileSizeLog2;
+	unsigned int tileStride;
+	unsigned int numTiles;
+
 	unsigned int *colorBuffer[MAX_COLOR_BUFFERS];
 	int colorPitchB[MAX_COLOR_BUFFERS];
 	int colorSliceB[MAX_COLOR_BUFFERS];
@@ -137,6 +142,7 @@ struct DrawCall
 	static void run(vk::Device *device, const marl::Loan<DrawCall> &draw, marl::Ticket::Queue *tickets, marl::Ticket::Queue clusterQueues[MaxClusterCount]);
 	static void processVertices(vk::Device *device, DrawCall *draw, BatchData *batch);
 	static void processPrimitives(vk::Device *device, DrawCall *draw, BatchData *batch);
+	static void processBinning(vk::Device *device, DrawCall *draw, BatchData *batch);
 	static void processPixels(vk::Device *device, const marl::Loan<DrawCall> &draw, const marl::Loan<BatchData> &batch, const std::shared_ptr<marl::Finally> &finally);
 	void setup();
 	void teardown(vk::Device *device);
@@ -158,6 +164,7 @@ struct DrawCall
 
 	VertexProcessor::RoutineType vertexRoutine;
 	SetupProcessor::RoutineType setupRoutine;
+	PrebinningProcessor::RoutineType prebinningRoutine;
 	PixelProcessor::RoutineType pixelRoutine;
 	bool preRasterizationContainsImageWrite;
 	bool fragmentContainsImageWrite;
@@ -230,6 +237,7 @@ private:
 	VertexProcessor vertexProcessor;
 	PixelProcessor pixelProcessor;
 	SetupProcessor setupProcessor;
+	PrebinningProcessor prebinningProcessor;
 
 	VertexProcessor::State vertexState;
 	SetupProcessor::State setupState;
@@ -237,6 +245,7 @@ private:
 
 	VertexProcessor::RoutineType vertexRoutine;
 	SetupProcessor::RoutineType setupRoutine;
+	PrebinningProcessor::RoutineType prebinningRoutine;
 	PixelProcessor::RoutineType pixelRoutine;
 
 	vk::Device *device;

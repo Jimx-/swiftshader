@@ -49,6 +49,8 @@ set(DEVICE_SRC_FILES
     Vertex.hpp
     VertexProcessor.cpp
     VertexProcessor.hpp
+    PrebinningProcessor.cpp
+    PrebinningProcessor.hpp
 )
 
 add_library(vk_device EXCLUDE_FROM_ALL

@@ -53,6 +53,8 @@ set(PIPELINE_SRC_FILES
     VertexProgram.hpp
     VertexRoutine.cpp
     VertexRoutine.hpp
+    PrebinningRoutine.cpp
+    PrebinningRoutine.hpp
 )
 
 set(PIPELINE_COMPILE_OPTIONS "")
