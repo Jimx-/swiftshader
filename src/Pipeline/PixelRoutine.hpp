@@ -15,7 +15,7 @@
 #ifndef sw_PixelRoutine_hpp
 #define sw_PixelRoutine_hpp
 
-#include "Device/QuadRasterizer.hpp"
+#include "Device/TileRasterizer.hpp"
 
 #include <vector>
 
@@ -24,7 +24,7 @@ namespace sw {
 class PixelShader;
 class SamplerCore;
 
-class PixelRoutine : public sw::QuadRasterizer
+class PixelRoutine : public sw::TileRasterizer
 {
 public:
 	PixelRoutine(const PixelProcessor::State &state,

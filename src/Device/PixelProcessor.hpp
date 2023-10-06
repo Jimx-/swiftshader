@@ -26,9 +26,14 @@ namespace sw {
 
 struct DrawData;
 struct Primitive;
+struct Tile;
 class SpirvShader;
 
-using RasterizerFunction = FunctionT<void(const vk::Device *device, const Primitive *primitive, int count, int cluster, int clusterCount, DrawData *draw)>;
+#if USE_SCANLINE_RASTERIZER
+using RasterizerFunction = FunctionT<void(const vk::Device *device, const Primitive *primitive, int count, DrawData *draw, int cluster, int clusterCount)>;
+#else
+using RasterizerFunction = FunctionT<void(const vk::Device *device, const Primitive *primitive, int count, DrawData *draw, Tile *tile, Tile *tileQueue)>;
+#endif
 
 class PixelProcessor
 {

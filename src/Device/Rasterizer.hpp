@@ -27,9 +27,14 @@ public:
 	    : device(Arg<0>())
 	    , primitive(Arg<1>())
 	    , count(Arg<2>())
-	    , cluster(Arg<3>())
-	    , clusterCount(Arg<4>())
-	    , data(Arg<5>())
+	    , data(Arg<3>())
+#if USE_SCANLINE_RASTERIZER
+	    , cluster(Arg<4>())
+	    , clusterCount(Arg<5>())
+#else
+	    , tile(Arg<4>())
+	    , tileQueue(Arg<5>())
+#endif
 	{}
 	virtual ~Rasterizer() {}
 
@@ -37,9 +42,14 @@ protected:
 	Pointer<Byte> device;
 	Pointer<Byte> primitive;
 	Int count;
+	Pointer<Byte> data;
+#if USE_SCANLINE_RASTERIZER
 	Int cluster;
 	Int clusterCount;
-	Pointer<Byte> data;
+#else
+	Pointer<Byte> tile;
+	Pointer<Byte> tileQueue;
+#endif
 };
 
 }  // namespace sw

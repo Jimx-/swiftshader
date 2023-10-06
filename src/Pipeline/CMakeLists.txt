@@ -55,6 +55,8 @@ set(PIPELINE_SRC_FILES
     VertexRoutine.hpp
     PrebinningRoutine.cpp
     PrebinningRoutine.hpp
+    BinningRoutine.cpp
+    BinningRoutine.hpp
 )
 
 set(PIPELINE_COMPILE_OPTIONS "")

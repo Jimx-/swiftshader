@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef sw_QuadRasterizer_hpp
-#define sw_QuadRasterizer_hpp
+#ifndef sw_ScanlineRasterizer_hpp
+#define sw_ScanlineRasterizer_hpp
 
 #include "Rasterizer.hpp"
 #include "Pipeline/ShaderCore.hpp"
@@ -22,11 +22,11 @@
 
 namespace sw {
 
-class QuadRasterizer : public Rasterizer
+class ScanlineRasterizer : public Rasterizer
 {
 public:
-	QuadRasterizer(const PixelProcessor::State &state, const SpirvShader *spirvShader);
-	virtual ~QuadRasterizer();
+	ScanlineRasterizer(const PixelProcessor::State &state, const SpirvShader *spirvShader);
+	virtual ~ScanlineRasterizer();
 
 	void generate();
 
@@ -62,4 +62,4 @@ private:
 
 }  // namespace sw
 
-#endif  // sw_QuadRasterizer_hpp
+#endif  // sw_ScanlineRasterizer_hpp
