@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef sw_QuadRasterizer_hpp
-#define sw_QuadRasterizer_hpp
+#ifndef sw_TileRasterizer_hpp
+#define sw_TileRasterizer_hpp
 
 #include "Rasterizer.hpp"
 #include "Pipeline/ShaderCore.hpp"
@@ -22,11 +22,11 @@
 
 namespace sw {
 
-class QuadRasterizer : public Rasterizer
+class TileRasterizer : public Rasterizer
 {
 public:
-	QuadRasterizer(const PixelProcessor::State &state, const SpirvShader *spirvShader);
-	virtual ~QuadRasterizer();
+	TileRasterizer(const PixelProcessor::State &state, const SpirvShader *spirvShader);
+	virtual ~TileRasterizer();
 
 	void generate();
 
@@ -38,28 +38,22 @@ protected:
 	SIMD::Float xFragment;
 	SIMD::Float yFragment;
 
-	// B * y + C term of interpolants plane equations
-	SIMD::Float Dz[4];
-	SIMD::Float Dw;
-	SIMD::Float Dv[MAX_INTERFACE_COMPONENTS];
-	SIMD::Float DclipDistance[MAX_CLIP_DISTANCES];
-	SIMD::Float DcullDistance[MAX_CULL_DISTANCES];
-
 	UInt occlusion;
 
 	virtual void quad(Pointer<Byte> cBuffer[4], Pointer<Byte> &zBuffer, Pointer<Byte> &sBuffer, Int cMask[4], Int &x, Int &y) = 0;
 
 	bool interpolateZ() const;
 	bool interpolateW() const;
-	SIMD::Float interpolate(SIMD::Float &x, SIMD::Float &D, SIMD::Float &rhw, Pointer<Byte> planeEquation, bool flat, bool perspective);
+	SIMD::Float interpolate(SIMD::Float &x, SIMD::Float &y, SIMD::Float &rhw, Pointer<Byte> planeEquation, bool flat, bool perspective);
 
 	const PixelProcessor::State &state;
 	const SpirvShader *const spirvShader;
 
 private:
-	void rasterize(Int &yMin, Int &yMax);
+	void scanTile(Pointer<Byte> topTile, Pointer<Byte> tileQueue);
+	void rasterize(Int &x, Int &y);
 };
 
 }  // namespace sw
 
-#endif  // sw_QuadRasterizer_hpp
+#endif  // sw_TileRasterizer_hpp

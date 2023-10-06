@@ -15,6 +15,10 @@
 #ifndef sw_Config_hpp
 #define sw_Config_hpp
 
+#define USE_SCANLINE_RASTERIZER 0
+#define USE_TILE_RASTERIZER 1
+#define USE_QUAD_RASTERIZER 0
+
 namespace sw {
 
 constexpr int OUTLINE_RESOLUTION = 8192;  // Maximum vertical resolution of the render target

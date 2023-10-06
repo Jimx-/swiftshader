@@ -15,10 +15,12 @@
 #ifndef sw_Renderer_hpp
 #define sw_Renderer_hpp
 
+#include "BinningProcessor.hpp"
 #include "PixelProcessor.hpp"
 #include "PrebinningProcessor.hpp"
 #include "Primitive.hpp"
 #include "SetupProcessor.hpp"
+#include "Tile.hpp"
 #include "VertexProcessor.hpp"
 #include "Vulkan/VkDescriptorSet.hpp"
 #include "Vulkan/VkPipeline.hpp"
@@ -50,7 +52,7 @@ struct Constants;
 
 static constexpr int MaxBatchSize = 128;
 static constexpr int MaxBatchCount = 16;
-static constexpr int MaxClusterCount = 16;
+static constexpr int MaxClusterCount = 1;
 static constexpr int MaxDrawCount = 16;
 
 using TriangleBatch = std::array<Triangle, MaxBatchSize>;
@@ -121,16 +123,23 @@ struct DrawCall
 {
 	struct BatchData
 	{
-		using Pool = marl::BoundedPool<BatchData, MaxBatchCount, marl::PoolPolicy::Preserve>;
+		using Pool = marl::BoundedPool<BatchData, MaxBatchCount, marl::PoolPolicy::Reconstruct>;
 
 		TriangleBatch triangles;
 		PrimitiveBatch primitives;
+		Tile *tiles;
 		VertexTask vertexTask;
 		unsigned int id;
 		unsigned int firstPrimitive;
 		unsigned int numPrimitives;
 		int numVisible;
 		marl::Ticket clusterTickets[MaxClusterCount];
+
+		~BatchData()
+		{
+			delete tiles;
+			tiles = nullptr;
+		}
 	};
 
 	using Pool = marl::BoundedPool<DrawCall, MaxDrawCount, marl::PoolPolicy::Preserve>;
@@ -165,6 +174,7 @@ struct DrawCall
 	VertexProcessor::RoutineType vertexRoutine;
 	SetupProcessor::RoutineType setupRoutine;
 	PrebinningProcessor::RoutineType prebinningRoutine;
+	BinningProcessor::RoutineType binningRoutine;
 	PixelProcessor::RoutineType pixelRoutine;
 	bool preRasterizationContainsImageWrite;
 	bool fragmentContainsImageWrite;
@@ -238,6 +248,7 @@ private:
 	PixelProcessor pixelProcessor;
 	SetupProcessor setupProcessor;
 	PrebinningProcessor prebinningProcessor;
+	BinningProcessor binningProcessor;
 
 	VertexProcessor::State vertexState;
 	SetupProcessor::State setupState;
@@ -246,6 +257,7 @@ private:
 	VertexProcessor::RoutineType vertexRoutine;
 	SetupProcessor::RoutineType setupRoutine;
 	PrebinningProcessor::RoutineType prebinningRoutine;
+	BinningProcessor::RoutineType binningRoutine;
 	PixelProcessor::RoutineType pixelRoutine;
 
 	vk::Device *device;

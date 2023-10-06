@@ -17,8 +17,8 @@
 #include "Constants.hpp"
 #include "SamplerCore.hpp"
 #include "Device/Primitive.hpp"
-#include "Device/QuadRasterizer.hpp"
 #include "Device/Renderer.hpp"
+#include "Device/TileRasterizer.hpp"
 #include "System/Debug.hpp"
 #include "System/Math.hpp"
 #include "Vulkan/VkPipelineLayout.hpp"
@@ -31,7 +31,7 @@ PixelRoutine::PixelRoutine(
     const vk::PipelineLayout *pipelineLayout,
     const SpirvShader *spirvShader,
     const vk::DescriptorSet::Bindings &descriptorSets)
-    : QuadRasterizer(state, spirvShader)
+    : TileRasterizer(state, spirvShader)
     , routine(pipelineLayout)
     , descriptorSets(descriptorSets)
     , shaderContainsInterpolation(spirvShader && spirvShader->getUsedCapabilities().InterpolationFunction)
@@ -99,18 +99,31 @@ void PixelRoutine::quad(Pointer<Byte> cBuffer[MAX_COLOR_BUFFERS], Pointer<Byte> 
 		const auto xMorton = SIMD::Float([](int i) { return float(compactEvenBits(i)); });  // 0, 1, 0, 1, 2, 3, 2, 3, 0, 1, 0, 1, 2, 3, 2, 3, ...
 		xFragment = SIMD::Float(Float(x)) + xMorton - SIMD::Float(*Pointer<Float>(primitive + OFFSET(Primitive, x0)));
 
+		const auto yMorton = SIMD::Float([](int i) { return float(compactEvenBits(i >> 1)); });  // 0, 0, 1, 1, 0, 0, 1, 1, 2, 2, 3, 3, 2, 2, 3, 3, ...
+		yFragment = SIMD::Float(Float(y)) + yMorton - SIMD::Float(*Pointer<Float>(primitive + OFFSET(Primitive, y0)));
+
 		if(interpolateZ())
 		{
 			for(unsigned int q : samples)
 			{
 				SIMD::Float x = xFragment;
+#if !USE_SCANLINE_RASTERIZER
+				SIMD::Float y = yFragment;
+#endif
 
 				if(state.enableMultiSampling)
 				{
 					x -= SIMD::Float(*Pointer<Float>(constants + OFFSET(Constants, SampleLocationsX) + q * sizeof(float)));
+#if !USE_SCANLINE_RASTERIZER
+					y -= SIMD::Float(*Pointer<Float>(constants + OFFSET(Constants, SampleLocationsY) + q * sizeof(float)));
+#endif
 				}
 
+#if USE_SCANLINE_RASTERIZER
 				z[q] = interpolate(x, Dz[q], z[q], primitive + OFFSET(Primitive, z), false, false);
+#else
+				z[q] = interpolate(x, y, z[q], primitive + OFFSET(Primitive, z), false, false);
+#endif
 
 				if(state.depthBias)
 				{
@@ -169,7 +182,11 @@ void PixelRoutine::quad(Pointer<Byte> cBuffer[MAX_COLOR_BUFFERS], Pointer<Byte> 
 
 			if(interpolateW())
 			{
+#if USE_SCANLINE_RASTERIZER
 				w = interpolate(xFragment, Dw, rhw, primitive + OFFSET(Primitive, w), false, false);
+#else
+				w = interpolate(xFragment, yFragment, rhw, primitive + OFFSET(Primitive, w), false, false);
+#endif
 				rhw = reciprocal(w, false, true);
 
 				if(state.centroid || shaderContainsInterpolation)  // TODO(b/194714095)
@@ -225,10 +242,17 @@ void PixelRoutine::quad(Pointer<Byte> cBuffer[MAX_COLOR_BUFFERS], Pointer<Byte> 
 						}
 						else
 						{
+#if USE_SCANLINE_RASTERIZER
 							routine.inputs[interfaceInterpolant] =
 							    interpolate(xFragment, Dv[interfaceInterpolant], rhw,
 							                primitive + OFFSET(Primitive, V[packedInterpolant]),
 							                input.Flat, !input.NoPerspective);
+#else
+							routine.inputs[interfaceInterpolant] =
+							    interpolate(xFragment, yFragment, rhw,
+							                primitive + OFFSET(Primitive, V[packedInterpolant]),
+							                input.Flat, !input.NoPerspective);
+#endif
 						}
 						packedInterpolant++;
 					}
@@ -238,9 +262,15 @@ void PixelRoutine::quad(Pointer<Byte> cBuffer[MAX_COLOR_BUFFERS], Pointer<Byte> 
 
 				for(uint32_t i = 0; i < state.numClipDistances; i++)
 				{
+#if USE_SCANLINE_RASTERIZER
 					auto distance = interpolate(xFragment, DclipDistance[i], rhw,
 					                            primitive + OFFSET(Primitive, clipDistance[i]),
 					                            false, true);
+#else
+					auto distance = interpolate(xFragment, yFragment, rhw,
+					                            primitive + OFFSET(Primitive, clipDistance[i]),
+					                            false, true);
+#endif
 
 					auto clipMask = SignMask(CmpGE(distance, SIMD::Float(0)));
 					for(unsigned int q : samples)
@@ -273,10 +303,17 @@ void PixelRoutine::quad(Pointer<Byte> cBuffer[MAX_COLOR_BUFFERS], Pointer<Byte> 
 						{
 							if(i < it->second.SizeInComponents)
 							{
+#if USE_SCANLINE_RASTERIZER
 								routine.getVariable(it->second.Id)[it->second.FirstComponent + i] =
 								    interpolate(xFragment, DcullDistance[i], rhw,
 								                primitive + OFFSET(Primitive, cullDistance[i]),
 								                false, true);
+#else
+								routine.getVariable(it->second.Id)[it->second.FirstComponent + i] =
+								    interpolate(xFragment, yFragment, rhw,
+								                primitive + OFFSET(Primitive, cullDistance[i]),
+								                false, true);
+#endif
 							}
 						}
 					}

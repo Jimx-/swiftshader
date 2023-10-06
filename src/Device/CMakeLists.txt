@@ -36,8 +36,12 @@ set(DEVICE_SRC_FILES
     PixelProcessor.hpp
     Polygon.hpp
     Primitive.hpp
-    QuadRasterizer.cpp
-    QuadRasterizer.hpp
+    #QuadRasterizer.cpp
+    #QuadRasterizer.hpp
+    #ScanlineRasterizer.cpp
+    #ScanlineRasterizer.hpp
+    TileRasterizer.cpp
+    TileRasterizer.hpp
     Rasterizer.hpp
     Renderer.cpp
     Renderer.hpp
@@ -51,6 +55,8 @@ set(DEVICE_SRC_FILES
     VertexProcessor.hpp
     PrebinningProcessor.cpp
     PrebinningProcessor.hpp
+    BinningProcessor.cpp
+    BinningProcessor.hpp
 )
 
 add_library(vk_device EXCLUDE_FROM_ALL

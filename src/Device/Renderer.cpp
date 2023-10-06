@@ -17,6 +17,7 @@
 #include "Clipper.hpp"
 #include "Polygon.hpp"
 #include "Primitive.hpp"
+#include "Tile.hpp"
 #include "Vertex.hpp"
 #include "Pipeline/Constants.hpp"
 #include "Pipeline/SpirvShader.hpp"
@@ -163,6 +164,7 @@ Renderer::Renderer(vk::Device *device)
 	setupProcessor.setRoutineCacheSize(1024);
 
 	prebinningRoutine = prebinningProcessor.routine();
+	binningRoutine = binningProcessor.routine();
 }
 
 Renderer::~Renderer()
@@ -389,6 +391,7 @@ void Renderer::draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState
 		draw->setupState = setupState;
 		draw->setupRoutine = setupRoutine;
 		draw->prebinningRoutine = prebinningRoutine;
+		draw->binningRoutine = binningRoutine;
 		draw->pixelRoutine = pixelRoutine;
 		draw->setupPrimitives = setupPrimitives;
 		draw->fragmentPipelineLayout = fragmentState->getPipelineLayout();
@@ -526,6 +529,7 @@ void DrawCall::teardown(vk::Device *device)
 	vertexRoutine = {};
 	setupRoutine = {};
 	prebinningRoutine = {};
+	binningRoutine = {};
 	pixelRoutine = {};
 
 	if(preRasterizationContainsImageWrite)
@@ -583,6 +587,7 @@ void DrawCall::run(vk::Device *device, const marl::Loan<DrawCall> &draw, marl::T
 		batch->id = batchId;
 		batch->firstPrimitive = batch->id * numPrimitivesPerBatch;
 		batch->numPrimitives = std::min(batch->firstPrimitive + numPrimitivesPerBatch, numPrimitives) - batch->firstPrimitive;
+		batch->tiles = nullptr;
 
 		for(int cluster = 0; cluster < MaxClusterCount; cluster++)
 		{
@@ -666,6 +671,13 @@ void DrawCall::processBinning(vk::Device *device, DrawCall *draw, BatchData *bat
 
 	for(unsigned int i = 1; i < draw->data->numTiles; i++)
 		primCount[i] += primCount[i - 1];
+
+	batch->tiles = reinterpret_cast<Tile *>(new uint8_t[sizeof(Tile) * draw->data->numTiles + sizeof(unsigned int) * primCount[draw->data->numTiles - 1]]);
+	memmove(&primCount[1], &primCount[0], (draw->data->numTiles - 1) * sizeof(unsigned int));
+	primCount[0] = 0;
+
+	for(unsigned int i = 0; i < draw->data->numTiles; i++)
+		draw->binningRoutine(device, primitives, batch->numVisible, primCount.get(), batch->tiles, draw->data, i);
 }
 
 void DrawCall::processPixels(vk::Device *device, const marl::Loan<DrawCall> &draw, const marl::Loan<BatchData> &batch, const std::shared_ptr<marl::Finally> &finally)
@@ -688,7 +700,12 @@ void DrawCall::processPixels(vk::Device *device, const marl::Loan<DrawCall> &dra
 			auto &draw = data->draw;
 			auto &batch = data->batch;
 			MARL_SCOPED_EVENT("PIXEL draw %d, batch %d, cluster %d", draw->id, batch->id, cluster);
-			draw->pixelRoutine(device, &batch->primitives.front(), batch->numVisible, cluster, MaxClusterCount, draw->data);
+#if USE_SCANLINE_RASTERIZER
+			draw->pixelRoutine(device, &batch->primitives.front(), batch->numVisible, draw->data, cluster, MaxClusterCount);
+#else
+			Tile tileQueue[512];
+			draw->pixelRoutine(device, &batch->primitives.front(), draw->data->numTiles, draw->data, batch->tiles, tileQueue);
+#endif
 			batch->clusterTickets[cluster].done();
 		});
 	}

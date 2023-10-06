@@ -185,84 +185,86 @@ void SetupRoutine::generate()
 			Return(0);
 		}
 
-		// For(Int q = 0, q < state.multiSampleCount, q++)
-		// {
-		// 	Array<Int> Xq(16);
-		// 	Array<Int> Yq(16);
+#if USE_SCANLINE_RASTERIZER
+		For(Int q = 0, q < state.multiSampleCount, q++)
+		{
+			Array<Int> Xq(16);
+			Array<Int> Yq(16);
 
-		// 	Int i = 0;
+			Int i = 0;
 
-		// 	Do
-		// 	{
-		// 		Xq[i] = X[i];
-		// 		Yq[i] = Y[i];
+			Do
+			{
+				Xq[i] = X[i];
+				Yq[i] = Y[i];
 
-		// 		if(state.enableMultiSampling)
-		// 		{
-		// 			// The subtraction here is because we're not moving the point, we're testing the edge against it
-		// 			Xq[i] = Xq[i] - *Pointer<Int>(constants + OFFSET(Constants, Xf) + q * sizeof(int));
-		// 			Yq[i] = Yq[i] - *Pointer<Int>(constants + OFFSET(Constants, Yf) + q * sizeof(int));
-		// 		}
+				if(state.enableMultiSampling)
+				{
+					// The subtraction here is because we're not moving the point, we're testing the edge against it
+					Xq[i] = Xq[i] - *Pointer<Int>(constants + OFFSET(Constants, Xf) + q * sizeof(int));
+					Yq[i] = Yq[i] - *Pointer<Int>(constants + OFFSET(Constants, Yf) + q * sizeof(int));
+				}
 
-		// 		i++;
-		// 	}
-		// 	Until(i >= n);
+				i++;
+			}
+			Until(i >= n);
 
-		// 	Pointer<Byte> leftEdge = Pointer<Byte>(primitive + OFFSET(Primitive, outline->left)) + q * sizeof(Primitive);
-		// 	Pointer<Byte> rightEdge = Pointer<Byte>(primitive + OFFSET(Primitive, outline->right)) + q * sizeof(Primitive);
+			Pointer<Byte> leftEdge = Pointer<Byte>(primitive + OFFSET(Primitive, outline->left)) + q * sizeof(Primitive);
+			Pointer<Byte> rightEdge = Pointer<Byte>(primitive + OFFSET(Primitive, outline->right)) + q * sizeof(Primitive);
 
-		// 	if(state.enableMultiSampling)
-		// 	{
-		// 		Int xMin = *Pointer<Int>(data + OFFSET(DrawData, scissorX0));
-		// 		Int xMax = *Pointer<Int>(data + OFFSET(DrawData, scissorX1));
-		// 		Short x = Short(Clamp((X[0] + subPixM) >> subPixB, xMin, xMax));
+			if(state.enableMultiSampling)
+			{
+				Int xMin = *Pointer<Int>(data + OFFSET(DrawData, scissorX0));
+				Int xMax = *Pointer<Int>(data + OFFSET(DrawData, scissorX1));
+				Short x = Short(Clamp((X[0] + subPixM) >> subPixB, xMin, xMax));
 
-		// 		For(Int y = yMin - 1, y < yMax + 1, y++)
-		// 		{
-		// 			*Pointer<Short>(leftEdge + y * sizeof(Primitive::Span)) = x;
-		// 			*Pointer<Short>(rightEdge + y * sizeof(Primitive::Span)) = x;
-		// 		}
-		// 	}
+				For(Int y = yMin - 1, y < yMax + 1, y++)
+				{
+					*Pointer<Short>(leftEdge + y * sizeof(Primitive::Span)) = x;
+					*Pointer<Short>(rightEdge + y * sizeof(Primitive::Span)) = x;
+				}
+			}
 
-		// 	Xq[n] = Xq[0];
-		// 	Yq[n] = Yq[0];
+			Xq[n] = Xq[0];
+			Yq[n] = Yq[0];
 
-		// 	// Rasterize
-		// 	{
-		// 		Int i = 0;
+			// Rasterize
+			{
+				Int i = 0;
 
-		// 		Do
-		// 		{
-		// 			edge(primitive, data, Xq[i + 1 - d], Yq[i + 1 - d], Xq[i + d], Yq[i + d], q);
+				Do
+				{
+					edge(primitive, data, Xq[i + 1 - d], Yq[i + 1 - d], Xq[i + d], Yq[i + d], q);
 
-		// 			i++;
-		// 		}
-		// 		Until(i >= n);
-		// 	}
+					i++;
+				}
+				Until(i >= n);
+			}
 
-		// 	if(!state.enableMultiSampling)
-		// 	{
-		// 		For(, yMin < yMax && *Pointer<Short>(leftEdge + yMin * sizeof(Primitive::Span)) == *Pointer<Short>(rightEdge + yMin * sizeof(Primitive::Span)), yMin++)
-		// 		{
-		// 			// Increments yMin
-		// 		}
+			if(!state.enableMultiSampling)
+			{
+				For(, yMin < yMax && *Pointer<Short>(leftEdge + yMin * sizeof(Primitive::Span)) == *Pointer<Short>(rightEdge + yMin * sizeof(Primitive::Span)), yMin++)
+				{
+					// Increments yMin
+				}
 
-		// 		For(, yMax > yMin && *Pointer<Short>(leftEdge + (yMax - 1) * sizeof(Primitive::Span)) == *Pointer<Short>(rightEdge + (yMax - 1) * sizeof(Primitive::Span)), yMax--)
-		// 		{
-		// 			// Decrements yMax
-		// 		}
+				For(, yMax > yMin && *Pointer<Short>(leftEdge + (yMax - 1) * sizeof(Primitive::Span)) == *Pointer<Short>(rightEdge + (yMax - 1) * sizeof(Primitive::Span)), yMax--)
+				{
+					// Decrements yMax
+				}
 
-		// 		If(yMin == yMax)
-		// 		{
-		// 			Return(0);
-		// 		}
+				If(yMin == yMax)
+				{
+					Return(0);
+				}
 
-		// 		*Pointer<Short>(leftEdge + (yMin - 1) * sizeof(Primitive::Span)) = *Pointer<Short>(leftEdge + yMin * sizeof(Primitive::Span));
-		// 		*Pointer<Short>(rightEdge + (yMin - 1) * sizeof(Primitive::Span)) = *Pointer<Short>(leftEdge + yMin * sizeof(Primitive::Span));
-		// 		*Pointer<Short>(leftEdge + yMax * sizeof(Primitive::Span)) = *Pointer<Short>(leftEdge + (yMax - 1) * sizeof(Primitive::Span));
-		// 		*Pointer<Short>(rightEdge + yMax * sizeof(Primitive::Span)) = *Pointer<Short>(leftEdge + (yMax - 1) * sizeof(Primitive::Span));
-		// 	}
-		// }
+				*Pointer<Short>(leftEdge + (yMin - 1) * sizeof(Primitive::Span)) = *Pointer<Short>(leftEdge + yMin * sizeof(Primitive::Span));
+				*Pointer<Short>(rightEdge + (yMin - 1) * sizeof(Primitive::Span)) = *Pointer<Short>(leftEdge + yMin * sizeof(Primitive::Span));
+				*Pointer<Short>(leftEdge + yMax * sizeof(Primitive::Span)) = *Pointer<Short>(leftEdge + (yMax - 1) * sizeof(Primitive::Span));
+				*Pointer<Short>(rightEdge + yMax * sizeof(Primitive::Span)) = *Pointer<Short>(leftEdge + (yMax - 1) * sizeof(Primitive::Span));
+			}
+		}
+#endif
 
 		*Pointer<Int>(primitive + OFFSET(Primitive, yMin)) = yMin;
 		*Pointer<Int>(primitive + OFFSET(Primitive, yMax)) = yMax;
@@ -608,6 +610,7 @@ void SetupRoutine::setupGradient(Pointer<Byte> &primitive, Pointer<Byte> &triang
 	}
 }
 
+#if USE_SCANLINE_RASTERIZER
 void SetupRoutine::edge(Pointer<Byte> &primitive, Pointer<Byte> &data, const Int &Xa, const Int &Ya, const Int &Xb, const Int &Yb, Int &q)
 {
 	If(Ya != Yb)
@@ -680,6 +683,7 @@ void SetupRoutine::edge(Pointer<Byte> &primitive, Pointer<Byte> &data, const Int
 		}
 	}
 }
+#endif
 
 void SetupRoutine::conditionalRotate1(Bool condition, Pointer<Byte> &v0, Pointer<Byte> &v1, Pointer<Byte> &v2)
 {

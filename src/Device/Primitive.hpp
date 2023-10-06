@@ -65,6 +65,7 @@ struct Primitive
 	int64_t clockwiseMask;
 	int64_t invClockwiseMask;
 
+#if USE_SCANLINE_RASTERIZER
 	struct Span
 	{
 		unsigned short left;
@@ -76,6 +77,7 @@ struct Primitive
 	Span outlineUnderflow[2];
 	Span outline[OUTLINE_RESOLUTION];
 	Span outlineOverflow[2];
+#endif
 };
 
 }  // namespace sw
