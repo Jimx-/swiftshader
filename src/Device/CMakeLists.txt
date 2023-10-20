@@ -36,12 +36,12 @@ set(DEVICE_SRC_FILES
     PixelProcessor.hpp
     Polygon.hpp
     Primitive.hpp
-    #QuadRasterizer.cpp
-    #QuadRasterizer.hpp
+    QuadRasterizer.cpp
+    QuadRasterizer.hpp
     #ScanlineRasterizer.cpp
     #ScanlineRasterizer.hpp
-    TileRasterizer.cpp
-    TileRasterizer.hpp
+    #TileRasterizer.cpp
+    #TileRasterizer.hpp
     Rasterizer.hpp
     Renderer.cpp
     Renderer.hpp

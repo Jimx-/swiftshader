@@ -18,7 +18,6 @@
 #include "SamplerCore.hpp"
 #include "Device/Primitive.hpp"
 #include "Device/Renderer.hpp"
-#include "Device/TileRasterizer.hpp"
 #include "System/Debug.hpp"
 #include "System/Math.hpp"
 #include "Vulkan/VkPipelineLayout.hpp"
@@ -58,7 +57,7 @@ PixelRoutine::PixelRoutine(
     const SpirvShader *spirvShader,
     const vk::Attachments &attachments,
     const vk::DescriptorSet::Bindings &descriptorSets)
-    : TileRasterizer(state, spirvShader)
+    : RasterizerType(state, spirvShader)
     , routine(pipelineLayout)
     , attachments(attachments)
     , descriptorSets(descriptorSets)

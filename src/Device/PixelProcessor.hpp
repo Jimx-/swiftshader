@@ -31,8 +31,12 @@ class SpirvShader;
 
 #if USE_SCANLINE_RASTERIZER
 using RasterizerFunction = FunctionT<void(const vk::Device *device, const Primitive *primitive, int count, DrawData *draw, int cluster, int clusterCount)>;
-#else
+#elif USE_TILE_RASTERIZER
 using RasterizerFunction = FunctionT<void(const vk::Device *device, const Primitive *primitive, int count, DrawData *draw, Tile *tile, Tile *tileQueue)>;
+#elif USE_QUAD_RASTERIZER
+using RasterizerFunction = FunctionT<void(const vk::Device *device, const Primitive *primitive, DrawData *draw, int x, int y, unsigned int mask, unsigned int pid)>;
+#else
+#	error "No rasterizer specified"
 #endif
 
 class PixelProcessor

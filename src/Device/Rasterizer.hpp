@@ -26,14 +26,23 @@ public:
 	Rasterizer()
 	    : device(Arg<0>())
 	    , primitive(Arg<1>())
+#if USE_SCANLINE_RASTERIZER || USE_TILE_RASTERIZER
 	    , count(Arg<2>())
 	    , data(Arg<3>())
+#else
+	    , data(Arg<2>())
+#endif
 #if USE_SCANLINE_RASTERIZER
 	    , cluster(Arg<4>())
 	    , clusterCount(Arg<5>())
-#else
+#elif USE_TILE_RASTERIZER
 	    , tile(Arg<4>())
 	    , tileQueue(Arg<5>())
+#elif USE_QUAD_RASTERIZER
+	    , x(Arg<3>())
+	    , y(Arg<4>())
+	    , mask(Arg<5>())
+	    , pid(Arg<6>())
 #endif
 	{}
 	virtual ~Rasterizer() {}
@@ -41,14 +50,21 @@ public:
 protected:
 	Pointer<Byte> device;
 	Pointer<Byte> primitive;
+#if USE_SCANLINE_RASTERIZER || USE_TILE_RASTERIZER
 	Int count;
+#endif
 	Pointer<Byte> data;
 #if USE_SCANLINE_RASTERIZER
 	Int cluster;
 	Int clusterCount;
-#else
+#elif USE_TILE_RASTERIZER
 	Pointer<Byte> tile;
 	Pointer<Byte> tileQueue;
+#elif USE_QUAD_RASTERIZER
+	Int x;
+	Int y;
+	UInt mask;
+	UInt pid;
 #endif
 };
 

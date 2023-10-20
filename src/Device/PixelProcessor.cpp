@@ -196,7 +196,7 @@ PixelProcessor::RoutineType PixelProcessor::routine(const State &state,
 
 	if(!routine)
 	{
-		TileRasterizer *generator = new PixelProgram(state, pipelineLayout, pixelShader, attachments, descriptorSets);
+		RasterizerType *generator = new PixelProgram(state, pipelineLayout, pixelShader, attachments, descriptorSets);
 		generator->generate();
 		routine = (*generator)("PixelRoutine_%0.8X", state.shaderID);
 		delete generator;

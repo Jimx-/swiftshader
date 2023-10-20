@@ -38,26 +38,19 @@ protected:
 	SIMD::Float xFragment;
 	SIMD::Float yFragment;
 
-	// B * y + C term of interpolants plane equations
-	SIMD::Float Dz[4];
-	SIMD::Float Dw;
-	SIMD::Float Dv[MAX_INTERFACE_COMPONENTS];
-	SIMD::Float DclipDistance[MAX_CLIP_DISTANCES];
-	SIMD::Float DcullDistance[MAX_CULL_DISTANCES];
-
 	UInt occlusion;
 
 	virtual void quad(Pointer<Byte> cBuffer[4], Pointer<Byte> &zBuffer, Pointer<Byte> &sBuffer, Int cMask[4], Int &x, Int &y) = 0;
 
 	bool interpolateZ() const;
 	bool interpolateW() const;
-	SIMD::Float interpolate(SIMD::Float &x, SIMD::Float &D, SIMD::Float &rhw, Pointer<Byte> planeEquation, bool flat, bool perspective);
+	SIMD::Float interpolate(SIMD::Float &x, SIMD::Float &y, SIMD::Float &rhw, Pointer<Byte> planeEquation, bool flat, bool perspective);
 
 	const PixelProcessor::State &state;
 	const SpirvShader *const spirvShader;
 
 private:
-	void rasterize(Int &yMin, Int &yMax);
+	void rasterize(Int &x, Int &y, UInt &mask);
 };
 
 }  // namespace sw
