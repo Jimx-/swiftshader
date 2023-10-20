@@ -2116,7 +2116,8 @@ RValue<SByte8> PackSigned(RValue<Short4> x, RValue<Short4> y)
 RValue<Byte8> PackUnsigned(RValue<Short4> x, RValue<Short4> y)
 {
 	RR_DEBUG_INFO_UPDATE_LOC();
-#if defined(__i386__) || defined(__x86_64__)
+	// #if defined(__i386__) || defined(__x86_64__)
+#if 0
 	auto result = x86::packuswb(x, y);
 #else
 	auto result = V(lowerPack(V(x.value()), V(y.value()), false));
@@ -2687,7 +2688,8 @@ RValue<Int4> Min(RValue<Int4> x, RValue<Int4> y)
 RValue<Int4> RoundInt(RValue<Float4> cast)
 {
 	RR_DEBUG_INFO_UPDATE_LOC();
-#if(defined(__i386__) || defined(__x86_64__)) && !__has_feature(memory_sanitizer)
+	// #if(defined(__i386__) || defined(__x86_64__)) && !__has_feature(memory_sanitizer)
+#if 0
 	return x86::cvtps2dq(cast);
 #else
 	return As<Int4>(V(lowerRoundInt(V(cast.value()), T(Int4::type()))));
@@ -2698,8 +2700,9 @@ RValue<Int4> RoundIntClamped(RValue<Float4> cast)
 {
 	RR_DEBUG_INFO_UPDATE_LOC();
 
-// TODO(b/165000222): Check if fptosi_sat produces optimal code for x86 and ARM.
-#if(defined(__i386__) || defined(__x86_64__)) && !__has_feature(memory_sanitizer)
+	// TODO(b/165000222): Check if fptosi_sat produces optimal code for x86 and ARM.
+	// #if(defined(__i386__) || defined(__x86_64__)) && !__has_feature(memory_sanitizer)
+#if 0
 	// cvtps2dq produces 0x80000000, a negative value, for input larger than
 	// 2147483520.0, so clamp to 2147483520. Values less than -2147483520.0
 	// saturate to 0x80000000.
@@ -2756,7 +2759,8 @@ RValue<UShort8> PackUnsigned(RValue<Int4> x, RValue<Int4> y)
 RValue<Int> SignMask(RValue<Int4> x)
 {
 	RR_DEBUG_INFO_UPDATE_LOC();
-#if defined(__i386__) || defined(__x86_64__)
+	// #if defined(__i386__) || defined(__x86_64__)
+#if 0
 	return x86::movmskps(As<Float4>(x));
 #else
 	return As<Int>(V(lowerSignMask(V(x.value()), T(Int::type()))));
@@ -3096,7 +3100,8 @@ RValue<Float4> Abs(RValue<Float4> x)
 RValue<Float4> Max(RValue<Float4> x, RValue<Float4> y)
 {
 	RR_DEBUG_INFO_UPDATE_LOC();
-#if defined(__i386__) || defined(__x86_64__)
+	// #if defined(__i386__) || defined(__x86_64__)
+#if 0
 	return x86::maxps(x, y);
 #else
 	return As<Float4>(V(lowerPFMINMAX(V(x.value()), V(y.value()), llvm::FCmpInst::FCMP_OGT)));
@@ -3106,7 +3111,8 @@ RValue<Float4> Max(RValue<Float4> x, RValue<Float4> y)
 RValue<Float4> Min(RValue<Float4> x, RValue<Float4> y)
 {
 	RR_DEBUG_INFO_UPDATE_LOC();
-#if defined(__i386__) || defined(__x86_64__)
+	// #if defined(__i386__) || defined(__x86_64__)
+#if 0
 	return x86::minps(x, y);
 #else
 	return As<Float4>(V(lowerPFMINMAX(V(x.value()), V(y.value()), llvm::FCmpInst::FCMP_OLT)));

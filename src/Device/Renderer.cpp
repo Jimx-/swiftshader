@@ -702,9 +702,11 @@ void DrawCall::processPixels(vk::Device *device, const marl::Loan<DrawCall> &dra
 			MARL_SCOPED_EVENT("PIXEL draw %d, batch %d, cluster %d", draw->id, batch->id, cluster);
 #if USE_SCANLINE_RASTERIZER
 			draw->pixelRoutine(device, &batch->primitives.front(), batch->numVisible, draw->data, cluster, MaxClusterCount);
-#else
+#elif USE_TILE_RASTERIZER
 			Tile tileQueue[512];
 			draw->pixelRoutine(device, &batch->primitives.front(), draw->data->numTiles, draw->data, batch->tiles, tileQueue);
+#elif USE_QUAD_RASTERIZER
+			(void)draw;
 #endif
 			batch->clusterTickets[cluster].done();
 		});
@@ -776,13 +778,13 @@ void DrawCall::processPrimitiveVertices(
 
 int DrawCall::setupSolidTriangles(vk::Device *device, Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count)
 {
-	auto &state = drawCall->setupState;
+	// auto &state = drawCall->setupState;
+	// int ms = state.multiSampleCount;
 
-	int ms = state.multiSampleCount;
 	const DrawData *data = drawCall->data;
 	int visible = 0;
 
-	for(int i = 0; i < count; i++, triangles++)
+	for(int i = 0; i < count; i++)
 	{
 		Vertex &v0 = triangles->v0;
 		Vertex &v1 = triangles->v1;
@@ -809,9 +811,9 @@ int DrawCall::setupSolidTriangles(vk::Device *device, Triangle *triangles, Primi
 			}
 		}
 
-		if(drawCall->setupRoutine(device, primitives, triangles, &polygon, data))
+		if(drawCall->setupRoutine(device, primitives, triangles, &polygon, data, i))
 		{
-			primitives += ms;
+			// primitives += ms;
 			visible++;
 		}
 	}
@@ -1036,7 +1038,7 @@ bool DrawCall::setupLine(vk::Device *device, Primitive &primitive, Triangle &tri
 			return false;
 		}
 
-		return draw.setupRoutine(device, &primitive, &triangle, &polygon, &data);
+		return draw.setupRoutine(device, &primitive, &triangle, &polygon, &data, 0);
 	}
 	else if(false)  // TODO(b/80135519): Deprecate
 	{
@@ -1123,7 +1125,7 @@ bool DrawCall::setupLine(vk::Device *device, Primitive &primitive, Triangle &tri
 			return false;
 		}
 
-		return draw.setupRoutine(device, &primitive, &triangle, &polygon, &data);
+		return draw.setupRoutine(device, &primitive, &triangle, &polygon, &data, 0);
 	}
 	else
 	{
@@ -1201,7 +1203,7 @@ bool DrawCall::setupLine(vk::Device *device, Primitive &primitive, Triangle &tri
 			return false;
 		}
 
-		return draw.setupRoutine(device, &primitive, &triangle, &polygon, &data);
+		return draw.setupRoutine(device, &primitive, &triangle, &polygon, &data, 0);
 	}
 
 	return false;
@@ -1250,7 +1252,7 @@ bool DrawCall::setupPoint(vk::Device *device, Primitive &primitive, Triangle &tr
 
 	primitive.pointSizeInv = 1.0f / pSize;
 
-	return draw.setupRoutine(device, &primitive, &triangle, &polygon, &data);
+	return draw.setupRoutine(device, &primitive, &triangle, &polygon, &data, 0);
 }
 
 void Renderer::addQuery(vk::Query *query)

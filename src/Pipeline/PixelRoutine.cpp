@@ -18,7 +18,6 @@
 #include "SamplerCore.hpp"
 #include "Device/Primitive.hpp"
 #include "Device/Renderer.hpp"
-#include "Device/TileRasterizer.hpp"
 #include "System/Debug.hpp"
 #include "System/Math.hpp"
 #include "Vulkan/VkPipelineLayout.hpp"
@@ -31,7 +30,7 @@ PixelRoutine::PixelRoutine(
     const vk::PipelineLayout *pipelineLayout,
     const SpirvShader *spirvShader,
     const vk::DescriptorSet::Bindings &descriptorSets)
-    : TileRasterizer(state, spirvShader)
+    : RasterizerType(state, spirvShader)
     , routine(pipelineLayout)
     , descriptorSets(descriptorSets)
     , shaderContainsInterpolation(spirvShader && spirvShader->getUsedCapabilities().InterpolationFunction)
