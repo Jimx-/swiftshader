@@ -92,6 +92,7 @@ target_include_directories(vk_pipeline
         "${SWIFTSHADER_DIR}/include"
         "${SPIRV-Headers_SOURCE_DIR}/include"
         "${SPIRV_TOOLS_EXT_INC_DIR}"
+        "${GROOM_ROOT}/driver/include"
 )
 
 target_compile_options(vk_pipeline

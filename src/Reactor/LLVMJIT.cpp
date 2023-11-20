@@ -30,18 +30,18 @@ __pragma(warning(push))
 // for information about `RTDyldObjectLinkingLayer` vs `ObjectLinkingLayer`.
 // On RISC-V, only `ObjectLinkingLayer` is supported.
 #if defined(__riscv)
-#define USE_LEGACY_OBJECT_LINKING_LAYER 0
+#	define USE_LEGACY_OBJECT_LINKING_LAYER 0
 #else
-#define USE_LEGACY_OBJECT_LINKING_LAYER 1
+#	define USE_LEGACY_OBJECT_LINKING_LAYER 1
 #endif
 
 #include "llvm/ExecutionEngine/Orc/CompileUtils.h"
 #include "llvm/ExecutionEngine/Orc/IRCompileLayer.h"
 
 #if USE_LEGACY_OBJECT_LINKING_LAYER
-#include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
+#	include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
 #else
-#include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
+#	include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
 #endif
 #include "llvm/ExecutionEngine/SectionMemoryManager.h"
 #include "llvm/IR/DiagnosticInfo.h"
@@ -237,7 +237,7 @@ JITGlobals *JITGlobals::get()
 
 #if LLVM_VERSION_MAJOR >= 11 /* TODO(b/165000222): Unconditional after LLVM 11 upgrade */
 
-#if defined(__riscv) && __riscv_xlen == 64
+#	if defined(__riscv) && __riscv_xlen == 64
 		// jitTargetMachineBuilder.getFeatures() on RISC-V does
 		// not return the RISC-V CPU extensions, so they are
 		// manually added.
@@ -250,7 +250,7 @@ JITGlobals *JITGlobals::get()
 		// On RISC-V, using the default code model results in an
 		// "Unsupported riscv relocation" error.
 		jitTargetMachineBuilder.setCodeModel(llvm::CodeModel::Medium);
-#endif
+#	endif
 
 		jitTargetMachineBuilder.setCPU(std::string(llvm::sys::getHostCPUName()));
 #else
@@ -783,7 +783,13 @@ public:
 	    std::unique_ptr<llvm::LLVMContext> context,
 	    const char *name,
 	    llvm::Function **funcs,
-	    size_t count)
+	    size_t count
+#if USE_GROOM
+	    ,
+	    std::unique_ptr<uint8_t[]> code,
+	    size_t code_size
+#endif
+	    )
 	    : name(name)
 #if LLVM_VERSION_MAJOR >= 13
 	    , session(std::move(Unwrap(llvm::orc::SelfExecutorProcessControl::Create())))
@@ -796,6 +802,10 @@ public:
 	    , objectLayer(session, llvm::cantFail(llvm::jitlink::InProcessMemoryManager::Create()))
 #endif
 	    , addresses(count)
+#if USE_GROOM
+	    , codeBuf(std::move(code))
+	    , codeSize(code_size)
+#endif
 	{
 		bool fatalCompileIssue = false;
 		context->setDiagnosticHandler(std::make_unique<FatalDiagnosticsHandler>(&fatalCompileIssue), true);
@@ -907,6 +917,14 @@ public:
 		return addresses[index];
 	}
 
+#if USE_GROOM
+	const uint8_t *getCode(size_t &size) const override
+	{
+		size = codeSize;
+		return codeBuf.get();
+	}
+#endif
+
 private:
 	std::string name;
 	llvm::orc::ExecutionSession session;
@@ -917,6 +935,10 @@ private:
 	llvm::orc::ObjectLinkingLayer objectLayer;
 #endif
 	std::vector<const void *> addresses;
+#if USE_GROOM
+	std::unique_ptr<uint8_t[]> codeBuf;
+	size_t codeSize;
+#endif
 };
 
 }  // anonymous namespace
@@ -1031,10 +1053,18 @@ void JITBuilder::runPasses()
 #endif
 }
 
+#if USE_GROOM
+std::shared_ptr<rr::Routine> JITBuilder::acquireRoutine(const char *name, llvm::Function **funcs, size_t count, std::unique_ptr<uint8_t[]> code, size_t code_size)
+{
+	ASSERT(module);
+	return std::make_shared<JITRoutine>(std::move(module), std::move(context), name, funcs, count, std::move(code), code_size);
+}
+#else
 std::shared_ptr<rr::Routine> JITBuilder::acquireRoutine(const char *name, llvm::Function **funcs, size_t count)
 {
 	ASSERT(module);
 	return std::make_shared<JITRoutine>(std::move(module), std::move(context), name, funcs, count);
 }
+#endif
 
 }  // namespace rr

@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set(GROOM_ROOT "" CACHE STRING "GROOM project root")
+
 set(ROOT_PROJECT_COMPILE_OPTIONS
     ${SWIFTSHADER_COMPILE_OPTIONS}
     ${WARNINGS_AS_ERRORS}
@@ -72,7 +74,13 @@ target_include_directories(vk_device
     PUBLIC
         ".."
         "${SWIFTSHADER_DIR}/include"
+        "${GROOM_ROOT}/driver/include"
+        "${GROOM_ROOT}/room/include/groom"
 )
+
+target_link_directories(vk_device
+    PUBLIC
+        "${GROOM_ROOT}/build/driver/rtlsim")
 
 target_compile_options(vk_device
     PRIVATE
@@ -88,4 +96,6 @@ target_link_libraries(vk_device
     PUBLIC
         vk_pipeline
         $<$<BOOL:${SWIFTSHADER_ENABLE_ASTC}>:astc-encoder>
+    PRIVATE
+        groom_rtlsim
 )

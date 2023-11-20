@@ -39,6 +39,10 @@
 #include "marl/defer.h"
 #include "marl/trace.h"
 
+#if USE_GROOM
+#	include <generated/platform.h>
+#endif
+
 #undef max
 
 #ifndef NDEBUG
@@ -47,6 +51,66 @@ unsigned int maxPrimitives = 1 << 21;
 #endif
 
 namespace sw {
+
+#if USE_GROOM
+struct VertexArg
+{
+	uint32_t device;
+	uint32_t output;
+	uint32_t batch;
+	uint32_t vertextask;
+	uint32_t draw;
+	uint32_t cache[32];
+};
+
+struct SetupArg
+{
+	uint32_t device;
+	uint32_t primitive;
+	uint32_t triangle;
+	uint32_t polygon;
+	uint32_t draw;
+	uint32_t num_primitives;
+};
+
+struct PrebinningArg
+{
+	uint32_t device;
+	uint32_t primitive;
+	uint32_t count;
+	uint32_t primCount;
+	uint32_t draw;
+	uint32_t numTiles;
+};
+
+struct BinningArg
+{
+	uint32_t device;
+	uint32_t primitive;
+	uint32_t count;
+	uint32_t primCount;
+	uint32_t tile;
+	uint32_t draw;
+	uint32_t numTiles;
+};
+
+struct PixelArg
+{
+	uint32_t device;
+	uint32_t primitive;
+	uint32_t draw;
+};
+
+static void uploadToDevice(groom_device_t dev, groom_dev_buffer_t devBuf, const void *hostBuf, size_t size)
+{
+	auto bounce = groom_buf_alloc(dev, size);
+	void *mappedBounce = groom_map_buffer(bounce);
+
+	memcpy(mappedBounce, hostBuf, size);
+	groom_copy_buffer_to_device(devBuf, bounce, size, 0);
+	groom_buf_free(bounce);
+}
+#endif
 
 template<typename T>
 inline bool setBatchIndices(unsigned int batch[128][3], VkPrimitiveTopology topology, VkProvokingVertexModeEXT provokingVertexMode, T indices, unsigned int start, unsigned int triangleCount)
@@ -165,11 +229,64 @@ Renderer::Renderer(vk::Device *device)
 
 	prebinningRoutine = prebinningProcessor.routine();
 	binningRoutine = binningProcessor.routine();
+
+#if USE_GROOM
+	gpuDevice = groom_device_open();
+
+	deviceDevBuf = groom_mem_alloc(gpuDevice, sizeof(vk::Device));
+	drawDevBuf = groom_mem_alloc(gpuDevice, sizeof(DrawData));
+
+	{
+		auto device_host = groom_buf_alloc(gpuDevice, sizeof(vk::Device));
+		Constants *constants = (Constants *)&((vk::Device *)groom_map_buffer(device_host))->constants;
+		memcpy((void *)constants, (void *)&device->constants, sizeof(Constants));
+
+		groom_copy_to_device(groom_dev_buf_addr(deviceDevBuf) +
+		                         OFFSET(Constants, maskB4Q),
+		                     device_host, sizeof(Constants::maskB4Q),
+		                     OFFSET(Constants, maskB4Q));
+		groom_copy_to_device(groom_dev_buf_addr(deviceDevBuf) +
+		                         OFFSET(Constants, maskD01Q),
+		                     device_host, sizeof(Constants::maskD01Q),
+		                     OFFSET(Constants, maskD01Q));
+		groom_copy_to_device(groom_dev_buf_addr(deviceDevBuf) +
+		                         OFFSET(Constants, maskD23Q),
+		                     device_host, sizeof(Constants::maskD23Q),
+		                     OFFSET(Constants, maskD23Q));
+		groom_copy_to_device(groom_dev_buf_addr(deviceDevBuf) +
+		                         OFFSET(Constants, SampleLocationsX),
+		                     device_host, sizeof(Constants::SampleLocationsX),
+		                     OFFSET(Constants, SampleLocationsX));
+		groom_copy_to_device(groom_dev_buf_addr(deviceDevBuf) +
+		                         OFFSET(Constants, SampleLocationsY),
+		                     device_host, sizeof(Constants::SampleLocationsY),
+		                     OFFSET(Constants, SampleLocationsY));
+		groom_copy_to_device(groom_dev_buf_addr(deviceDevBuf) +
+		                         OFFSET(Constants, sampleX),
+		                     device_host, sizeof(Constants::sampleX),
+		                     OFFSET(Constants, sampleX));
+		groom_copy_to_device(groom_dev_buf_addr(deviceDevBuf) +
+		                         OFFSET(Constants, sampleY),
+		                     device_host, sizeof(Constants::sampleY),
+		                     OFFSET(Constants, sampleY));
+		groom_copy_to_device(
+		    groom_dev_buf_addr(deviceDevBuf) + OFFSET(Constants, weight),
+		    device_host, sizeof(Constants::weight), OFFSET(Constants, weight));
+
+		groom_buf_free(device_host);
+	}
+#endif
 }
 
 Renderer::~Renderer()
 {
 	drawTickets.take().wait();
+
+#if USE_GROOM
+	groom_mem_free(gpuDevice, deviceDevBuf);
+	groom_mem_free(gpuDevice, drawDevBuf);
+	groom_device_close(gpuDevice);
+#endif
 }
 
 // Renderer objects have to be mem aligned to the alignment provided in the class declaration
@@ -280,8 +397,21 @@ void Renderer::draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState
 	for(int i = 0; i < MAX_INTERFACE_COMPONENTS / 4; i++)
 	{
 		const sw::Stream &stream = inputs.getStream(i);
+#if USE_GROOM
+		data->input[i] = 0;
+		data->robustnessSize[i] = stream.robustnessSize;
+		draw->vertexDevBuf[i] = INVALID_DEVICE_BUFFER;
+
+		if(stream.robustnessSize > 0)
+		{
+			draw->vertexDevBuf[i] = groom_mem_alloc(gpuDevice, stream.robustnessSize);
+			uploadToDevice(gpuDevice, draw->vertexDevBuf[i], stream.buffer, stream.robustnessSize);
+			data->input[i] = (void *)groom_dev_buf_addr(draw->vertexDevBuf[i]);
+		}
+#else
 		data->input[i] = stream.buffer;
 		data->robustnessSize[i] = stream.robustnessSize;
+#endif
 		data->stride[i] = inputs.getVertexStride(i, vertexInputInterfaceState.hasDynamicVertexStride());
 	}
 
@@ -465,7 +595,12 @@ void Renderer::draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState
 
 				if(draw->colorBuffer[index])
 				{
-					data->colorBuffer[index] = (unsigned int *)attachments.colorBuffer[index]->getOffsetPointer({ 0, 0, 0 }, VK_IMAGE_ASPECT_COLOR_BIT, 0, data->layer);
+#if USE_GROOM
+					if(index == 0)
+						data->colorBuffer[index] = (unsigned int *)0xc0400000UL;
+					else
+#endif
+						data->colorBuffer[index] = (unsigned int *)attachments.colorBuffer[index]->getOffsetPointer({ 0, 0, 0 }, VK_IMAGE_ASPECT_COLOR_BIT, 0, data->layer);
 					data->colorPitchB[index] = attachments.colorBuffer[index]->rowPitchBytes(VK_IMAGE_ASPECT_COLOR_BIT, 0);
 					data->colorSliceB[index] = attachments.colorBuffer[index]->slicePitchBytes(VK_IMAGE_ASPECT_COLOR_BIT, 0);
 				}
@@ -499,6 +634,17 @@ void Renderer::draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState
 	{
 		data->pushConstants = pushConstants;
 	}
+
+#if USE_GROOM
+	draw->gpuDevice = gpuDevice;
+	draw->deviceDevBuf = deviceDevBuf;
+	draw->drawDevBuf = drawDevBuf;
+	draw->vertexOutDevBuf = INVALID_DEVICE_BUFFER;
+	draw->primitiveOutDevBuf = INVALID_DEVICE_BUFFER;
+	draw->tileOutDevBuf = INVALID_DEVICE_BUFFER;
+
+	uploadToDevice(gpuDevice, drawDevBuf, data, sizeof(DrawData));
+#endif
 
 	draw->events = events;
 
@@ -564,6 +710,23 @@ void DrawCall::teardown(vk::Device *device)
 			vk::DescriptorSet::ContentsChanged(descriptorSetObjects, fragmentPipelineLayout, device);
 		}
 	}
+
+#if USE_GROOM
+	for(int i = 0; i < MAX_INTERFACE_COMPONENTS / 4; i++)
+	{
+		if(vertexDevBuf[i] != INVALID_DEVICE_BUFFER)
+			groom_mem_free(gpuDevice, vertexDevBuf[i]);
+	}
+
+	if(vertexOutDevBuf != INVALID_DEVICE_BUFFER)
+		groom_mem_free(gpuDevice, vertexOutDevBuf);
+
+	if(primitiveOutDevBuf != INVALID_DEVICE_BUFFER)
+		groom_mem_free(gpuDevice, primitiveOutDevBuf);
+
+	if(tileOutDevBuf != INVALID_DEVICE_BUFFER)
+		groom_mem_free(gpuDevice, tileOutDevBuf);
+#endif
 }
 
 void DrawCall::run(vk::Device *device, const marl::Loan<DrawCall> &draw, marl::Ticket::Queue *tickets, marl::Ticket::Queue clusterQueues[MaxClusterCount])
@@ -644,12 +807,91 @@ void DrawCall::processVertices(vk::Device *device, DrawCall *draw, BatchData *ba
 		vertexTask.vertexCache.drawCall = draw->id;
 	}
 
+#if USE_GROOM
+	groom_dev_buffer_t vcache_dev;
+	{
+		auto vcache_host = groom_buf_alloc(draw->gpuDevice, sizeof(VertexCache));
+		VertexCache *vcache = (VertexCache *)groom_map_buffer(vcache_host);
+		memset(vcache->tag, 0xff, sizeof(vcache->tag));
+
+		vcache_dev = groom_mem_alloc(draw->gpuDevice, sizeof(VertexCache) * 32);
+		for(int i = 0; i < 32; i++)
+			groom_copy_to_device(
+			    groom_dev_buf_addr(vcache_dev) + i * sizeof(VertexCache) +
+			        OFFSET(VertexCache, tag),
+			    vcache_host, sizeof(vcache->tag), OFFSET(VertexCache, tag));
+		groom_buf_free(vcache_host);
+	}
+
+	groom_dev_buffer_t batch_dev;
+	batch_dev = groom_mem_alloc(draw->gpuDevice, sizeof(triangleIndices));
+	uploadToDevice(draw->gpuDevice, batch_dev, triangleIndices, sizeof(triangleIndices));
+
+	groom_dev_buffer_t vtask_dev;
+	vtask_dev = groom_mem_alloc(draw->gpuDevice, sizeof(VertexTask));
+	uploadToDevice(draw->gpuDevice, vtask_dev, &vertexTask, sizeof(VertexTask));
+
+	size_t code_size;
+	auto *code_buf = draw->vertexRoutine.getCode(code_size);
+	groom_upload_kernel(draw->gpuDevice, code_buf, code_size);
+
+	draw->vertexOutDevBuf = groom_mem_alloc(draw->gpuDevice, sizeof(Vertex) * vertexTask.vertexCount);
+
+	groom_dev_buffer_t varg_dev;
+	{
+		auto varg_host = groom_buf_alloc(draw->gpuDevice, sizeof(VertexArg));
+		VertexArg *varg =
+		    (VertexArg *)groom_map_buffer(varg_host);
+		varg->device = groom_dev_buf_addr(draw->deviceDevBuf);
+		varg->output = groom_dev_buf_addr(draw->vertexOutDevBuf);
+		varg->batch = groom_dev_buf_addr(batch_dev);
+		varg->vertextask = groom_dev_buf_addr(vtask_dev);
+		varg->draw = groom_dev_buf_addr(draw->drawDevBuf);
+		for(int i = 0; i < 32; i++)
+			varg->cache[i] =
+			    groom_dev_buf_addr(vcache_dev) + i * sizeof(VertexCache);
+
+		varg_dev = groom_mem_alloc(draw->gpuDevice, sizeof(VertexArg));
+		groom_copy_buffer_to_device(varg_dev, varg_host,
+		                            sizeof(VertexArg), 0);
+		groom_buf_free(varg_host);
+	}
+
+	groom_start(draw->gpuDevice, varg_dev, 0);
+
+	{
+		auto vertex_host = groom_buf_alloc(draw->gpuDevice, sizeof(Vertex) * 3);
+		Vertex *vertex = (Vertex *)groom_map_buffer(vertex_host);
+
+		groom_copy_buffer_from_device(vertex_host, draw->vertexOutDevBuf,
+		                              sizeof(Vertex) * 3, 0);
+
+		for(int i = 0; i < 3; i++)
+		{
+			printf("%f %f %f %f\n", vertex[i].x, vertex[i].y,
+			       vertex[i].z, vertex[i].w);
+			printf("%d %d %f %f\n", vertex[i].projected.x,
+			       vertex[i].projected.y, vertex[i].projected.z,
+			       vertex[i].projected.w);
+			printf("%f %f %f %f\n", vertex[i].v[0], vertex[i].v[1],
+			       vertex[i].v[2], vertex[i].v[3]);
+		}
+		groom_buf_free(vertex_host);
+	}
+
+	groom_mem_free(draw->gpuDevice, varg_dev);
+	groom_mem_free(draw->gpuDevice, batch_dev);
+	groom_mem_free(draw->gpuDevice, vtask_dev);
+	groom_mem_free(draw->gpuDevice, vcache_dev);
+#else
 	unsigned int *p = &triangleIndices[0][0];
 	Vertex *vp = &batch->triangles.front().v0;
+
 	for(unsigned int i = 0; i < vertexTask.vertexCount; i++)
 	{
 		draw->vertexRoutine(device, vp, p, &vertexTask, draw->data, &vertexTask.vertexCache, i);
 	}
+#endif
 }
 
 void DrawCall::processPrimitives(vk::Device *device, DrawCall *draw, BatchData *batch)
@@ -657,27 +899,130 @@ void DrawCall::processPrimitives(vk::Device *device, DrawCall *draw, BatchData *
 	MARL_SCOPED_EVENT("PRIMITIVES draw %d batch %d", draw->id, batch->id);
 	auto triangles = &batch->triangles[0];
 	auto primitives = &batch->primitives[0];
+#if USE_GROOM
+	draw->primitiveOutDevBuf = groom_mem_alloc(draw->gpuDevice, sizeof(Primitive) * MaxBatchSize);
+#endif
 	batch->numVisible = draw->setupPrimitives(device, triangles, primitives, draw, batch->numPrimitives);
 }
 
 void DrawCall::processBinning(vk::Device *device, DrawCall *draw, BatchData *batch)
 {
 	MARL_SCOPED_EVENT("BINNING draw %d batch %d", draw->id, batch->id);
+#if USE_GROOM
+	auto primCountDev = groom_mem_alloc(draw->gpuDevice, sizeof(unsigned int) * draw->data->numTiles);
+	auto primCountHost =
+	    groom_buf_alloc(draw->gpuDevice, sizeof(unsigned int) * draw->data->numTiles);
+	unsigned int *primCount = (unsigned int *)groom_map_buffer(primCountHost);
+
+	size_t code_size;
+	auto *code_buf = draw->prebinningRoutine.getCode(code_size);
+	groom_upload_kernel(draw->gpuDevice, code_buf, code_size);
+
+	groom_dev_buffer_t parg_dev;
+	{
+		auto parg_host =
+		    groom_buf_alloc(draw->gpuDevice, sizeof(PrebinningArg));
+		PrebinningArg *parg =
+		    (PrebinningArg *)groom_map_buffer(parg_host);
+
+		parg->device = groom_dev_buf_addr(draw->deviceDevBuf);
+		parg->primitive = groom_dev_buf_addr(draw->primitiveOutDevBuf);
+		parg->count = batch->numVisible;
+		parg->primCount = groom_dev_buf_addr(primCountDev);
+		parg->draw = groom_dev_buf_addr(draw->drawDevBuf);
+		parg->numTiles = draw->data->numTiles;
+
+		parg_dev = groom_mem_alloc(draw->gpuDevice, sizeof(PrebinningArg));
+		groom_copy_buffer_to_device(parg_dev, parg_host,
+		                            sizeof(PrebinningArg), 0);
+		groom_buf_free(parg_host);
+	}
+
+	groom_start(draw->gpuDevice, parg_dev, 0);
+
+	groom_copy_buffer_from_device(primCountHost, primCountDev,
+	                              sizeof(unsigned int) * draw->data->numTiles, 0);
+
+	for(unsigned int i = 0; i < draw->data->numTiles; i += 20)
+	{
+		for(unsigned int j = 0; j < 20; j++)
+		{
+			printf("%d ", primCount[i + j]);
+		}
+		printf("\n");
+	}
+
+	groom_mem_free(draw->gpuDevice, parg_dev);
+#else
 	auto primCount = std::make_unique<unsigned int[]>(draw->data->numTiles);
 	auto primitives = &batch->primitives[0];
 
 	for(unsigned int i = 0; i < draw->data->numTiles; i++)
 		draw->prebinningRoutine(device, primitives, batch->numVisible, primCount.get(), draw->data, i);
+#endif
 
 	for(unsigned int i = 1; i < draw->data->numTiles; i++)
 		primCount[i] += primCount[i - 1];
 
-	batch->tiles = reinterpret_cast<Tile *>(new uint8_t[sizeof(Tile) * draw->data->numTiles + sizeof(unsigned int) * primCount[draw->data->numTiles - 1]]);
+	auto numPrimitives = primCount[draw->data->numTiles - 1];
+	batch->tiles = reinterpret_cast<Tile *>(new uint8_t[sizeof(Tile) * draw->data->numTiles + sizeof(unsigned int) * numPrimitives]);
 	memmove(&primCount[1], &primCount[0], (draw->data->numTiles - 1) * sizeof(unsigned int));
 	primCount[0] = 0;
 
+#if USE_GROOM
+	draw->tileOutDevBuf = groom_mem_alloc(draw->gpuDevice, sizeof(Tile) * draw->data->numTiles + sizeof(unsigned int) * numPrimitives);
+
+	groom_copy_buffer_to_device(primCountDev, primCountHost, sizeof(unsigned int) * draw->data->numTiles, 0);
+
+	code_buf = draw->binningRoutine.getCode(code_size);
+	groom_upload_kernel(draw->gpuDevice, code_buf, code_size);
+
+	groom_dev_buffer_t barg_dev;
+	{
+		auto barg_host = groom_buf_alloc(draw->gpuDevice, sizeof(BinningArg));
+		BinningArg *barg =
+		    (BinningArg *)groom_map_buffer(barg_host);
+
+		barg->device = groom_dev_buf_addr(draw->deviceDevBuf);
+		barg->primitive = groom_dev_buf_addr(draw->primitiveOutDevBuf);
+		barg->count = batch->numVisible;
+		barg->primCount = groom_dev_buf_addr(primCountDev);
+		barg->tile = groom_dev_buf_addr(draw->tileOutDevBuf);
+		barg->draw = groom_dev_buf_addr(draw->drawDevBuf);
+		barg->numTiles = draw->data->numTiles;
+
+		barg_dev = groom_mem_alloc(draw->gpuDevice, sizeof(BinningArg));
+		groom_copy_buffer_to_device(barg_dev, barg_host,
+		                            sizeof(BinningArg), 0);
+		groom_buf_free(barg_host);
+	}
+
+	groom_start(draw->gpuDevice, barg_dev, 0);
+
+	{
+		auto tile_host = groom_buf_alloc(draw->gpuDevice, sizeof(Tile) * draw->data->numTiles + sizeof(unsigned int) * numPrimitives);
+		Tile *tile = (Tile *)groom_map_buffer(tile_host);
+
+		groom_copy_buffer_from_device(tile_host, draw->tileOutDevBuf, sizeof(Tile) * draw->data->numTiles + sizeof(unsigned int) * numPrimitives,
+		                              0);
+
+		for(unsigned int i = 0; i < draw->data->numTiles; i++)
+		{
+			printf("%d %d %d %d\n", tile->startX, tile->startY,
+			       tile->count, tile->level);
+			tile = (Tile *)((char *)tile + sizeof(Tile) +
+			                tile->count * sizeof(unsigned int));
+		}
+
+		groom_buf_free(tile_host);
+	}
+
+	groom_mem_free(draw->gpuDevice, barg_dev);
+	groom_mem_free(draw->gpuDevice, primCountDev);
+#else
 	for(unsigned int i = 0; i < draw->data->numTiles; i++)
 		draw->binningRoutine(device, primitives, batch->numVisible, primCount.get(), batch->tiles, draw->data, i);
+#endif
 }
 
 void DrawCall::processPixels(vk::Device *device, const marl::Loan<DrawCall> &draw, const marl::Loan<BatchData> &batch, const std::shared_ptr<marl::Finally> &finally)
@@ -700,13 +1045,44 @@ void DrawCall::processPixels(vk::Device *device, const marl::Loan<DrawCall> &dra
 			auto &draw = data->draw;
 			auto &batch = data->batch;
 			MARL_SCOPED_EVENT("PIXEL draw %d, batch %d, cluster %d", draw->id, batch->id, cluster);
-#if USE_SCANLINE_RASTERIZER
+#if USE_GROOM
+			size_t code_size;
+			auto *code_buf = draw->pixelRoutine.getCode(code_size);
+			groom_upload_kernel(draw->gpuDevice, code_buf, code_size);
+
+			groom_dev_buffer_t parg_dev;
+			{
+				auto parg_host = groom_buf_alloc(draw->gpuDevice, sizeof(PixelArg));
+				PixelArg *parg =
+				    (PixelArg *)groom_map_buffer(parg_host);
+
+				parg->device = groom_dev_buf_addr(draw->deviceDevBuf);
+				parg->primitive = groom_dev_buf_addr(draw->primitiveOutDevBuf);
+				parg->draw = groom_dev_buf_addr(draw->drawDevBuf);
+
+				parg_dev = groom_mem_alloc(draw->gpuDevice, sizeof(PixelArg));
+				groom_copy_buffer_to_device(parg_dev, parg_host,
+				                            sizeof(PixelArg), 0);
+				groom_buf_free(parg_host);
+			}
+
+			groom_dev_write_config(draw->gpuDevice, CTRL_RASTER_TILE_COUNT_ADDRESS, draw->data->numTiles);
+			groom_dev_write_config(draw->gpuDevice, CTRL_RASTER_TILE_ADDR_ADDRESS, groom_dev_buf_addr(draw->tileOutDevBuf));
+			groom_dev_write_config(draw->gpuDevice, CTRL_RASTER_PRIM_ADDR_ADDRESS, groom_dev_buf_addr(draw->primitiveOutDevBuf));
+			groom_dev_write_config(draw->gpuDevice, CTRL_RASTER_PRIM_STRIDE_ADDRESS, sizeof(Primitive));
+
+			groom_start(draw->gpuDevice, parg_dev, 1);
+
+			groom_mem_free(draw->gpuDevice, parg_dev);
+#else
+#	if USE_SCANLINE_RASTERIZER
 			draw->pixelRoutine(device, &batch->primitives.front(), batch->numVisible, draw->data, cluster, MaxClusterCount);
-#elif USE_TILE_RASTERIZER
+#	elif USE_TILE_RASTERIZER
 			Tile tileQueue[512];
 			draw->pixelRoutine(device, &batch->primitives.front(), draw->data->numTiles, draw->data, batch->tiles, tileQueue);
-#elif USE_QUAD_RASTERIZER
+#	elif USE_QUAD_RASTERIZER
 			(void)draw;
+#	endif
 #endif
 			batch->clusterTickets[cluster].done();
 		});
@@ -781,16 +1157,80 @@ int DrawCall::setupSolidTriangles(vk::Device *device, Triangle *triangles, Primi
 	// auto &state = drawCall->setupState;
 	// int ms = state.multiSampleCount;
 
-	const DrawData *data = drawCall->data;
+	std::vector<Polygon> polygons;
 	int visible = 0;
 
 	for(int i = 0; i < count; i++)
 	{
-		Vertex &v0 = triangles->v0;
-		Vertex &v1 = triangles->v1;
-		Vertex &v2 = triangles->v2;
+		Vertex &v0 = triangles[i].v0;
+		Vertex &v1 = triangles[i].v1;
+		Vertex &v2 = triangles[i].v2;
 
-		Polygon polygon(&v0.position, &v1.position, &v2.position);
+		polygons.emplace_back(&v0.position, &v1.position, &v2.position);
+	}
+
+#if USE_GROOM
+	auto polygon_dev = groom_mem_alloc(drawCall->gpuDevice, sizeof(Polygon) * count);
+	uploadToDevice(drawCall->gpuDevice, polygon_dev, &polygons[0], sizeof(Polygon) * count);
+
+	size_t code_size;
+	auto *code_buf = drawCall->setupRoutine.getCode(code_size);
+	groom_upload_kernel(drawCall->gpuDevice, code_buf, code_size);
+
+	groom_dev_buffer_t sarg_dev;
+	{
+		auto sarg_host = groom_buf_alloc(drawCall->gpuDevice, sizeof(SetupArg));
+		SetupArg *sarg =
+		    (SetupArg *)groom_map_buffer(sarg_host);
+		sarg->device = groom_dev_buf_addr(drawCall->deviceDevBuf);
+		sarg->primitive = groom_dev_buf_addr(drawCall->primitiveOutDevBuf);
+		sarg->triangle = groom_dev_buf_addr(drawCall->vertexOutDevBuf);
+		sarg->polygon = groom_dev_buf_addr(polygon_dev);
+		sarg->draw = groom_dev_buf_addr(drawCall->drawDevBuf);
+		sarg->num_primitives = count;
+
+		sarg_dev = groom_mem_alloc(drawCall->gpuDevice, sizeof(SetupArg));
+		groom_copy_buffer_to_device(sarg_dev, sarg_host,
+		                            sizeof(SetupArg), 0);
+		groom_buf_free(sarg_host);
+	}
+
+	groom_start(drawCall->gpuDevice, sarg_dev, 0);
+
+	{
+		auto primitive_host = groom_buf_alloc(drawCall->gpuDevice, sizeof(Primitive));
+		Primitive *primitive = (Primitive *)groom_map_buffer(primitive_host);
+
+		groom_copy_buffer_from_device(primitive_host, drawCall->primitiveOutDevBuf,
+		                              sizeof(Primitive), 0);
+
+		for(int i = 0; i < 3; i++)
+		{
+			printf("%d %d %d\n", primitive->edge[i].A,
+			       primitive->edge[i].B, primitive->edge[i].C);
+		}
+		for(int i = 0; i < 3; i++)
+		{
+			printf("%f %f %f\n", primitive->V[i].A, primitive->V[i].B,
+			       primitive->V[i].C);
+		}
+		printf("%d %d\n", primitive->yMin, primitive->yMax);
+
+		groom_buf_free(primitive_host);
+	}
+
+	groom_mem_free(drawCall->gpuDevice, sarg_dev);
+	groom_mem_free(drawCall->gpuDevice, polygon_dev);
+
+	visible = count;
+#else
+	const DrawData *data = drawCall->data;
+
+	for(int i = 0; i < count; i++)
+	{
+		Vertex &v0 = triangles[i].v0;
+		Vertex &v1 = triangles[i].v1;
+		Vertex &v2 = triangles[i].v2;
 
 		if((v0.cullMask | v1.cullMask | v2.cullMask) == 0)
 		{
@@ -805,18 +1245,19 @@ int DrawCall::setupSolidTriangles(vk::Device *device, Triangle *triangles, Primi
 		int clipFlagsOr = v0.clipFlags | v1.clipFlags | v2.clipFlags;
 		if(clipFlagsOr != Clipper::CLIP_FINITE)
 		{
-			if(!Clipper::Clip(polygon, clipFlagsOr, *drawCall))
+			if(!Clipper::Clip(polygons[i], clipFlagsOr, *drawCall))
 			{
 				continue;
 			}
 		}
 
-		if(drawCall->setupRoutine(device, primitives, triangles, &polygon, data, i))
+		if(drawCall->setupRoutine(device, primitives, triangles, &polygons[0], data, i))
 		{
 			// primitives += ms;
 			visible++;
 		}
 	}
+#endif
 
 	return visible;
 }

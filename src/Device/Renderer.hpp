@@ -29,6 +29,10 @@
 #include "marl/pool.h"
 #include "marl/ticket.h"
 
+#if USE_GROOM
+#	include <groom.h>
+#endif
+
 #include <atomic>
 
 namespace vk {
@@ -194,6 +198,18 @@ struct DrawCall
 
 	DrawData *data;
 
+#if USE_GROOM
+	groom_device_t gpuDevice;
+	groom_dev_buffer_t deviceDevBuf;
+	groom_dev_buffer_t drawDevBuf;
+
+	groom_dev_buffer_t vertexOutDevBuf;
+	groom_dev_buffer_t primitiveOutDevBuf;
+	groom_dev_buffer_t tileOutDevBuf;
+
+	groom_dev_buffer_t vertexDevBuf[MAX_INTERFACE_COMPONENTS / 4];
+#endif
+
 	static void processPrimitiveVertices(
 	    unsigned int triangleIndicesOut[MaxBatchSize + 1][3],
 	    const void *primitiveIndices,
@@ -261,6 +277,12 @@ private:
 	PixelProcessor::RoutineType pixelRoutine;
 
 	vk::Device *device;
+
+#if USE_GROOM
+	groom_device_t gpuDevice;
+	groom_dev_buffer_t deviceDevBuf;
+	groom_dev_buffer_t drawDevBuf;
+#endif
 };
 
 }  // namespace sw

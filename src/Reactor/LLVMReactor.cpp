@@ -29,10 +29,13 @@
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ManagedStatic.h"
 
+#include <unistd.h>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <mutex>
 #include <numeric>
+#include <sstream>
 #include <thread>
 #include <unordered_map>
 
@@ -542,7 +545,91 @@ Nucleus::~Nucleus()
 	jit = nullptr;
 }
 
-std::shared_ptr<Routine> Nucleus::acquireRoutine(const char *name)
+#if USE_GROOM
+struct DeviceRoutineMain
+{
+	const char *name;
+	const char *code;
+};
+
+static const DeviceRoutineMain dev_routines[] = {
+	{
+	    "VertexRoutine",
+#	include "VertexMain.inc"
+	},
+	{
+	    "SetupRoutine",
+#	include "SetupMain.inc"
+	},
+	{
+	    "PrebinningRoutine",
+#	include "PrebinningMain.inc"
+	},
+	{
+	    "BinningRoutine",
+#	include "BinningMain.inc"
+	},
+	{
+	    "PixelRoutine",
+#	include "PixelMain.inc"
+	},
+	{ nullptr, nullptr },
+};
+
+static int exec_cmd(const char *cmd, std::ostream &out)
+{
+	char buffer[128];
+	auto pipe = popen(cmd, "r");
+	if(!pipe) return -1;
+	while(!feof(pipe))
+	{
+		if(fgets(buffer, 128, pipe) != nullptr)
+			out << buffer;
+	}
+	return pclose(pipe);
+}
+
+static std::unique_ptr<uint8_t[]> build_kernel_program(const char *main_file, const char *kernel_file, const char *out_file, size_t &code_size)
+{
+	const char *build_script = getenv("GROOM_BUILD_SCRIPT");
+	if(!build_script)
+	{
+		std::cerr << "GROOM_BUILD_SCRIPT does not exist" << std::endl;
+		return nullptr;
+	}
+
+	std::stringstream ss_cmd, ss_out;
+	ss_cmd << build_script << " " << kernel_file << " " << main_file << " " << out_file;
+
+	int ret = exec_cmd(ss_cmd.str().c_str(), ss_out);
+	if(ret < 0)
+	{
+		std::cerr << "Build kernel error: " << ss_out.str() << std::endl;
+		return nullptr;
+	}
+
+	std::ifstream ifs(out_file);
+	if(!ifs)
+	{
+		std::cerr << "Kernel file not found: " << out_file << std::endl;
+		return nullptr;
+	}
+
+	ifs.seekg(0, ifs.end);
+	auto size = ifs.tellg();
+	auto buf = std::make_unique<uint8_t[]>(size);
+	ifs.seekg(0, ifs.beg);
+	ifs.read(reinterpret_cast<char *>(buf.get()), size);
+
+	code_size = size;
+
+	return buf;
+}
+
+#endif
+
+std::shared_ptr<Routine>
+Nucleus::acquireRoutine(const char *name)
 {
 	if(jit->builder->GetInsertBlock()->empty() || !jit->builder->GetInsertBlock()->back().isTerminator())
 	{
@@ -571,7 +658,7 @@ std::shared_ptr<Routine> Nucleus::acquireRoutine(const char *name)
 		}
 #endif  // ENABLE_RR_DEBUG_INFO
 
-		if(true)
+		if(false)
 		{
 			std::error_code error;
 			llvm::raw_fd_ostream file(std::string(name) + "-llvm-dump-unopt.txt", error);
@@ -587,7 +674,69 @@ std::shared_ptr<Routine> Nucleus::acquireRoutine(const char *name)
 			jit->module->print(file, 0);
 		}
 
+#if USE_GROOM
+		size_t code_size = 0;
+		std::unique_ptr<uint8_t[]> kernel_buf;
+
+		{
+			auto *entry = dev_routines;
+			while(entry->name)
+			{
+				if(std::equal(entry->name, entry->name + std::min(strlen(entry->name), strlen(name)), name))
+				{
+					break;
+				}
+
+				entry++;
+			}
+
+			if(entry->name)
+			{
+				char main_file[128];
+				char kernel_file[128];
+				char out_file[128];
+
+				main_file[0] = '\0';
+				strlcat(main_file, "/tmp/", sizeof(main_file));
+				strlcat(main_file, name, sizeof(main_file));
+				strlcat(main_file, "-main-XXXXXX.c", sizeof(main_file));
+
+				{
+					int main_fd = mkstemps(main_file, 2);
+					write(main_fd, entry->code, strlen(entry->code));
+					close(main_fd);
+				}
+
+				kernel_file[0] = '\0';
+				strlcat(kernel_file, "/tmp/", sizeof(kernel_file));
+				strlcat(kernel_file, name, sizeof(kernel_file));
+				strlcat(kernel_file, "-kernel-XXXXXX.txt", sizeof(kernel_file));
+
+				{
+					int kernel_fd = mkstemps(kernel_file, 4);
+					llvm::raw_fd_ostream file(kernel_fd, true);
+					jit->module->print(file, 0);
+				}
+
+				out_file[0] = '\0';
+				strlcat(out_file, "/tmp/", sizeof(out_file));
+				strlcat(out_file, name, sizeof(out_file));
+				strlcat(out_file, "-kernel-XXXXXX.bin", sizeof(out_file));
+				{
+					int out_fd = mkstemps(out_file, 4);
+					close(out_fd);
+				}
+
+				kernel_buf = build_kernel_program(main_file, kernel_file, out_file, code_size);
+			}
+		}
+#endif
+
+#if USE_GROOM
+		routine = jit->acquireRoutine(name, &jit->function, 1, std::move(kernel_buf), code_size);
+#else
 		routine = jit->acquireRoutine(name, &jit->function, 1);
+#endif
 	};
 
 #ifdef JIT_IN_SEPARATE_THREAD
@@ -4158,7 +4307,7 @@ std::shared_ptr<Routine> Nucleus::acquireCoroutine(const char *name)
 	funcs[Nucleus::CoroutineEntryAwait] = jit->coroutine.await;
 	funcs[Nucleus::CoroutineEntryDestroy] = jit->coroutine.destroy;
 
-	auto routine = jit->acquireRoutine(name, funcs, Nucleus::CoroutineEntryCount);
+	auto routine = jit->acquireRoutine(name, funcs, Nucleus::CoroutineEntryCount, nullptr, 0);
 
 	delete jit;
 	jit = nullptr;
