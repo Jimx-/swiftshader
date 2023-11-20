@@ -91,7 +91,11 @@ public:
 
 	void runPasses();
 
+#if USE_GROOM
+	std::shared_ptr<rr::Routine> acquireRoutine(const char *name, llvm::Function **funcs, size_t count, std::unique_ptr<uint8_t[]> code, size_t code_size);
+#else
 	std::shared_ptr<rr::Routine> acquireRoutine(const char *name, llvm::Function **funcs, size_t count);
+#endif
 
 	std::unique_ptr<llvm::LLVMContext> context;
 	std::unique_ptr<llvm::Module> module;

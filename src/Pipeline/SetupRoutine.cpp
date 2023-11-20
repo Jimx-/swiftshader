@@ -41,7 +41,7 @@ void SetupRoutine::generate()
 		Pointer<Byte> device(function.Arg<0>());
 		Pointer<Byte> primitive(Pointer<Byte>(function.Arg<1>()) + index * state.multiSampleCount * sizeof(Primitive));
 		Pointer<Byte> tri(Pointer<Byte>(function.Arg<2>()) + index * 3 * sizeof(Vertex));
-		Pointer<Byte> polygon(function.Arg<3>());
+		Pointer<Byte> polygon(Pointer<Byte>(function.Arg<3>()) + index * sizeof(Polygon));
 		Pointer<Byte> data(function.Arg<4>());
 
 		Pointer<Byte> constants = device + OFFSET(vk::Device, constants);

@@ -17,6 +17,8 @@
 
 #include <memory>
 
+#define USE_GROOM 1
+
 namespace rr {
 
 class Routine
@@ -26,6 +28,14 @@ public:
 	virtual ~Routine() = default;
 
 	virtual const void *getEntry(int index = 0) const = 0;
+
+#if USE_GROOM
+	virtual const uint8_t *getCode(size_t &size) const
+	{
+		size = 0;
+		return nullptr;
+	}
+#endif
 };
 
 // RoutineT is a type-safe wrapper around a Routine and its function entry, returned by FunctionT
@@ -64,6 +74,13 @@ public:
 	{
 		return function;
 	}
+
+#if USE_GROOM
+	virtual const uint8_t *getCode(size_t &size) const
+	{
+		return routine->getCode(size);
+	}
+#endif
 
 private:
 	std::shared_ptr<Routine> routine;
