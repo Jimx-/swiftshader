@@ -17,8 +17,6 @@
 
 #include <memory>
 
-#define USE_GROOM 1
-
 namespace rr {
 
 class Routine

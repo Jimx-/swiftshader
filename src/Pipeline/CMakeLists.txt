@@ -17,6 +17,18 @@ set(ROOT_PROJECT_COMPILE_OPTIONS
     ${WARNINGS_AS_ERRORS}
 )
 
+if (SWIFTSHADER_USE_GROOM)
+add_definitions(-DUSE_GROOM=1)
+add_definitions(-DUSE_SCANLINE_RASTERIZER=0)
+add_definitions(-DUSE_TILE_RASTERIZER=0)
+add_definitions(-DUSE_QUAD_RASTERIZER=1)
+else()
+add_definitions(-DUSE_GROOM=0)
+add_definitions(-DUSE_SCANLINE_RASTERIZER=0)
+add_definitions(-DUSE_TILE_RASTERIZER=1)
+add_definitions(-DUSE_QUAD_RASTERIZER=0)
+endif()
+
 set(PIPELINE_SRC_FILES
     ComputeProgram.cpp
     ComputeProgram.hpp
@@ -92,8 +104,15 @@ target_include_directories(vk_pipeline
         "${SWIFTSHADER_DIR}/include"
         "${SPIRV-Headers_SOURCE_DIR}/include"
         "${SPIRV_TOOLS_EXT_INC_DIR}"
+)
+
+if(SWIFTSHADER_USE_GROOM)
+target_include_directories(vk_pipeline
+    PUBLIC
         "${GROOM_ROOT}/driver/include"
 )
+endif()
+
 
 target_compile_options(vk_pipeline
     PRIVATE

@@ -17,6 +17,12 @@ set(ROOT_PROJECT_COMPILE_OPTIONS
     ${WARNINGS_AS_ERRORS}
 )
 
+if (SWIFTSHADER_USE_GROOM)
+add_definitions(-DUSE_GROOM=1)
+else()
+add_definitions(-DUSE_GROOM=0)
+endif()
+
 set(REACTOR_SRC_FILES
     Assert.cpp
     Assert.hpp

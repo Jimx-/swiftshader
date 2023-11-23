@@ -4307,7 +4307,12 @@ std::shared_ptr<Routine> Nucleus::acquireCoroutine(const char *name)
 	funcs[Nucleus::CoroutineEntryAwait] = jit->coroutine.await;
 	funcs[Nucleus::CoroutineEntryDestroy] = jit->coroutine.destroy;
 
-	auto routine = jit->acquireRoutine(name, funcs, Nucleus::CoroutineEntryCount, nullptr, 0);
+	auto routine = jit->acquireRoutine(name, funcs, Nucleus::CoroutineEntryCount
+#if USE_GROOM
+	                                   ,
+	                                   nullptr, 0
+#endif
+	);
 
 	delete jit;
 	jit = nullptr;

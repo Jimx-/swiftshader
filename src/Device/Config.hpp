@@ -15,12 +15,6 @@
 #ifndef sw_Config_hpp
 #define sw_Config_hpp
 
-#define USE_SCANLINE_RASTERIZER 0
-#define USE_TILE_RASTERIZER 0
-#define USE_QUAD_RASTERIZER 1
-
-#define USE_GROOM 1
-
 #if USE_SCANLINE_RASTERIZER
 #	define RasterizerType ScanlineRasterizer
 #elif USE_TILE_RASTERIZER

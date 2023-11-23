@@ -222,6 +222,8 @@ endif()
 
 set_property(GLOBAL PROPERTY USE_FOLDERS TRUE)
 
+option_if_not_defined(SWIFTSHADER_USE_GROOM "Build with GROOM GPU support" OFF)
+
 ###########################################################
 # Directories
 ###########################################################
