@@ -19,6 +19,12 @@ set(ROOT_PROJECT_COMPILE_OPTIONS
     ${WARNINGS_AS_ERRORS}
 )
 
+if (SWIFTSHADER_USE_GROOM)
+add_definitions(-DUSE_GROOM=1)
+else()
+add_definitions(-DUSE_GROOM=0)
+endif()
+
 set(DEVICE_SRC_FILES
     ASTC_Decoder.cpp
     ASTC_Decoder.hpp
@@ -38,12 +44,6 @@ set(DEVICE_SRC_FILES
     PixelProcessor.hpp
     Polygon.hpp
     Primitive.hpp
-    QuadRasterizer.cpp
-    QuadRasterizer.hpp
-    #ScanlineRasterizer.cpp
-    #ScanlineRasterizer.hpp
-    #TileRasterizer.cpp
-    #TileRasterizer.hpp
     Rasterizer.hpp
     Renderer.cpp
     Renderer.hpp
@@ -61,6 +61,28 @@ set(DEVICE_SRC_FILES
     BinningProcessor.hpp
 )
 
+if (SWIFTSHADER_USE_GROOM)
+add_definitions(-DUSE_SCANLINE_RASTERIZER=0)
+add_definitions(-DUSE_TILE_RASTERIZER=0)
+add_definitions(-DUSE_QUAD_RASTERIZER=1)
+
+set(DEVICE_SRC_FILES
+    ${DEVICE_SRC_FILES}
+    QuadRasterizer.cpp
+    QuadRasterizer.hpp
+)
+else()
+add_definitions(-DUSE_SCANLINE_RASTERIZER=0)
+add_definitions(-DUSE_TILE_RASTERIZER=1)
+add_definitions(-DUSE_QUAD_RASTERIZER=0)
+
+set(DEVICE_SRC_FILES
+    ${DEVICE_SRC_FILES}
+    TileRasterizer.cpp
+    TileRasterizer.hpp
+)
+endif()
+
 add_library(vk_device EXCLUDE_FROM_ALL
     ${DEVICE_SRC_FILES}
 )
@@ -74,6 +96,11 @@ target_include_directories(vk_device
     PUBLIC
         ".."
         "${SWIFTSHADER_DIR}/include"
+)
+
+if (SWIFTSHADER_USE_GROOM)
+target_include_directories(vk_device
+    PUBLIC
         "${GROOM_ROOT}/driver/include"
         "${GROOM_ROOT}/room/include/groom"
 )
@@ -81,6 +108,7 @@ target_include_directories(vk_device
 target_link_directories(vk_device
     PUBLIC
         "${GROOM_ROOT}/build/driver/rtlsim")
+endif()
 
 target_compile_options(vk_device
     PRIVATE
@@ -96,6 +124,11 @@ target_link_libraries(vk_device
     PUBLIC
         vk_pipeline
         $<$<BOOL:${SWIFTSHADER_ENABLE_ASTC}>:astc-encoder>
+)
+
+if (SWIFTSHADER_USE_GROOM)
+target_link_libraries(vk_device
     PRIVATE
         groom_rtlsim
 )
+endif()

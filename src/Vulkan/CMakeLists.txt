@@ -17,6 +17,18 @@ set(ROOT_PROJECT_COMPILE_OPTIONS
     ${WARNINGS_AS_ERRORS}
 )
 
+if (SWIFTSHADER_USE_GROOM)
+add_definitions(-DUSE_GROOM=1)
+add_definitions(-DUSE_SCANLINE_RASTERIZER=0)
+add_definitions(-DUSE_TILE_RASTERIZER=0)
+add_definitions(-DUSE_QUAD_RASTERIZER=1)
+else()
+add_definitions(-DUSE_GROOM=0)
+add_definitions(-DUSE_SCANLINE_RASTERIZER=0)
+add_definitions(-DUSE_TILE_RASTERIZER=1)
+add_definitions(-DUSE_QUAD_RASTERIZER=0)
+endif()
+
 set(VULKAN_SRC_FILES
     libVulkan.cpp
     main.cpp
