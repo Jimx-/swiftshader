@@ -83,6 +83,8 @@ public:
 		addVertexBuffer(vertexBufferData, vertexBufferDataSize, sizeof(VertexType), std::move(inputAttributes));
 	}
 
+	void addUniformBuffer(size_t uniformBufferDataSize);
+
 	template<typename T>
 	struct Resource
 	{
@@ -112,6 +114,17 @@ public:
 	vk::Sampler &getSamplerById(size_t id)
 	{
 		return samplers[id];
+	}
+
+	struct UniformBuffer
+	{
+		vk::Buffer buffer;
+		vk::DeviceMemory memory;
+	};
+
+	UniformBuffer &getUniformBufferById(size_t id)
+	{
+		return uniforms[id];
 	}
 
 private:
@@ -169,7 +182,10 @@ private:
 	std::vector<std::unique_ptr<Image>> images;
 	std::vector<vk::Sampler> samplers;  // Owning handles
 
-	std::vector<vk::CommandBuffer> commandBuffers;  // Owning handles
+	std::vector<UniformBuffer> uniforms;
+
+	std::vector<vk::CommandBuffer>
+	    commandBuffers;  // Owning handles
 };
 
 inline void DrawTester::onCreateVertexBuffers(std::function<void(ThisType &tester)> callback)

@@ -48,6 +48,12 @@ DrawTester::~DrawTester()
 	device.freeMemory(vertices.memory, nullptr);
 	device.destroyBuffer(vertices.buffer, nullptr);
 
+	for(auto &uniform : uniforms)
+	{
+		device.freeMemory(uniform.memory, nullptr);
+		device.destroyBuffer(uniform.buffer, nullptr);
+	}
+
 	for(auto &framebuffer : framebuffers)
 	{
 		framebuffer.reset();
@@ -332,14 +338,16 @@ void DrawTester::createCommandBuffers(vk::RenderPass renderPass)
 	std::vector<vk::DescriptorSet> descriptorSets;
 	if(descriptorSetLayout)
 	{
-		std::array<vk::DescriptorPoolSize, 1> poolSizes = {};
+		std::array<vk::DescriptorPoolSize, 2> poolSizes = {};
 		poolSizes[0].type = vk::DescriptorType::eCombinedImageSampler;
 		poolSizes[0].descriptorCount = 1;
+		poolSizes[1].type = vk::DescriptorType::eUniformBuffer;
+		poolSizes[1].descriptorCount = 1;
 
 		vk::DescriptorPoolCreateInfo poolInfo;
 		poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 		poolInfo.pPoolSizes = poolSizes.data();
-		poolInfo.maxSets = 1;
+		poolInfo.maxSets = 2;
 
 		descriptorPool = device.createDescriptorPool(poolInfo);
 
@@ -438,6 +446,24 @@ void DrawTester::addVertexBuffer(void *vertexBufferData, size_t vertexBufferData
 
 	// Note that we assume data is tightly packed
 	vertices.numVertices = static_cast<uint32_t>(vertexBufferDataSize / vertexSize);
+}
+
+void DrawTester::addUniformBuffer(size_t uniformBufferDataSize)
+{
+	auto &uniform = uniforms.emplace_back();
+
+	vk::BufferCreateInfo uniformBufferInfo;
+	uniformBufferInfo.size = uniformBufferDataSize;
+	uniformBufferInfo.usage = vk::BufferUsageFlagBits::eUniformBuffer;
+	uniform.buffer = device.createBuffer(uniformBufferInfo);
+
+	vk::MemoryAllocateInfo memoryAllocateInfo;
+	vk::MemoryRequirements memoryRequirements = device.getBufferMemoryRequirements(uniform.buffer);
+	memoryAllocateInfo.allocationSize = memoryRequirements.size;
+	memoryAllocateInfo.memoryTypeIndex = Util::getMemoryTypeIndex(physicalDevice, memoryRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+	uniform.memory = device.allocateMemory(memoryAllocateInfo);
+
+	device.bindBufferMemory(uniform.buffer, uniform.memory, 0);
 }
 
 vk::ShaderModule DrawTester::createShaderModule(const char *glslSource, EShLanguage glslLanguage)
