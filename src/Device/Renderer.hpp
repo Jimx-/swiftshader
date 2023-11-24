@@ -206,8 +206,6 @@ struct DrawCall
 	groom_dev_buffer_t vertexOutDevBuf;
 	groom_dev_buffer_t primitiveOutDevBuf;
 	groom_dev_buffer_t tileOutDevBuf;
-
-	groom_dev_buffer_t vertexDevBuf[MAX_INTERFACE_COMPONENTS / 4];
 #endif
 
 	static void processPrimitiveVertices(

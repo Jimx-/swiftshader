@@ -18,6 +18,10 @@
 #include "VkFormat.hpp"
 #include "VkObject.hpp"
 
+#if USE_GROOM
+#	include <groom.h>
+#endif
+
 #ifdef VK_USE_PLATFORM_ANDROID_KHR
 #	include <vulkan/vk_android_native_buffer.h>
 #endif
@@ -30,7 +34,7 @@ public:
 	static constexpr VkSystemAllocationScope GetAllocationScope() { return VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE; }
 
 	PhysicalDevice(const void *, void *mem);
-	void destroy(const VkAllocationCallbacks *pAllocator) {}
+	void destroy(const VkAllocationCallbacks *pAllocator);
 
 	static size_t ComputeRequiredAllocationSize(const void *) { return 0; }
 
@@ -122,7 +126,18 @@ public:
 
 	static const VkPhysicalDeviceLimits &getLimits();
 
+#if USE_GROOM
+	groom_device_t getGpuDevice() const
+	{
+		return gpuDevice;
+	}
+#endif
+
 private:
+#if USE_GROOM
+	groom_device_t gpuDevice;
+#endif
+
 	static VkSampleCountFlags getSampleCounts();
 	VkQueueFamilyProperties getQueueFamilyProperties() const;
 

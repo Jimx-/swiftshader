@@ -1448,6 +1448,7 @@ VKAPI_ATTR void VKAPI_CALL vkUnmapMemory(VkDevice device, VkDeviceMemory memory)
 	TRACE("(VkDevice device = %p, VkDeviceMemory memory = %p)", device, static_cast<void *>(memory));
 
 	// Noop, memory will be released when the DeviceMemory object is released
+	vk::Cast(memory)->unmap();
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkFlushMappedMemoryRanges(VkDevice device, uint32_t memoryRangeCount, const VkMappedMemoryRange *pMemoryRanges)
@@ -1456,6 +1457,13 @@ VKAPI_ATTR VkResult VKAPI_CALL vkFlushMappedMemoryRanges(VkDevice device, uint32
 	      device, memoryRangeCount, pMemoryRanges);
 
 	// Noop, host and device memory are the same to SwiftShader
+	for(unsigned int i = 0; i < memoryRangeCount; i++)
+	{
+		auto memory = vk::Cast(pMemoryRanges[i].memory);
+
+		auto ret = memory->flush(pMemoryRanges[i].offset, pMemoryRanges[i].size);
+		if(ret != VK_SUCCESS) return ret;
+	}
 
 	return VK_SUCCESS;
 }

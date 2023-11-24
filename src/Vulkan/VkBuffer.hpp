@@ -38,6 +38,7 @@ public:
 	void fill(VkDeviceSize dstOffset, VkDeviceSize fillSize, uint32_t data);
 	void update(VkDeviceSize dstOffset, VkDeviceSize dataSize, const void *pData);
 	void *getOffsetPointer(VkDeviceSize offset) const;
+	void *getDevicePointer(VkDeviceSize offset) const;
 	uint64_t getOpaqueCaptureAddress() const;
 	inline VkDeviceSize getSize() const { return size; }
 	uint8_t *end() const;
@@ -48,6 +49,7 @@ public:
 
 private:
 	void *memory = nullptr;
+	void *devMemory = nullptr;
 	VkBufferCreateFlags flags = 0;
 	VkDeviceSize size = 0;
 	VkBufferUsageFlags usage = 0;

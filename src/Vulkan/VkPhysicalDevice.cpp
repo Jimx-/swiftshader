@@ -30,6 +30,16 @@ namespace vk {
 
 PhysicalDevice::PhysicalDevice(const void *, void *mem)
 {
+#if USE_GROOM
+	gpuDevice = groom_device_open();
+#endif
+}
+
+void PhysicalDevice::destroy(const VkAllocationCallbacks *pAllocator)
+{
+#if USE_GROOM
+	groom_device_close(gpuDevice);
+#endif
 }
 
 const VkPhysicalDeviceFeatures &PhysicalDevice::getFeatures() const

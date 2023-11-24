@@ -22,6 +22,10 @@
 #include "VkMemory.hpp"
 #include "VkStringify.hpp"
 
+#if USE_GROOM
+#	include "VkDeviceMemoryGroom.hpp"
+#endif
+
 #if SWIFTSHADER_EXTERNAL_MEMORY_OPAQUE_FD
 
 // Helper struct which reads the parsed allocation info and
@@ -138,7 +142,11 @@ VkResult DeviceMemory::Allocate(const VkAllocationCallbacks *pAllocator, const V
 		return ExternalMemoryHost::Create(pAllocator, &allocateInfo, pMemory, extendedAllocationInfo, device);
 	}
 
+#if USE_GROOM
+	return GroomDeviceMemory::Create(pAllocator, &allocateInfo, pMemory, extendedAllocationInfo, device);
+#else
 	return vk::DeviceMemoryInternal::Create(pAllocator, &allocateInfo, pMemory, extendedAllocationInfo, device);
+#endif
 }
 
 DeviceMemory::DeviceMemory(const VkMemoryAllocateInfo *pAllocateInfo, const DeviceMemory::ExtendedAllocationInfo &extendedAllocationInfo, Device *pDevice)

@@ -80,8 +80,11 @@ public:
 	void destroy(const VkAllocationCallbacks *pAllocator);
 	VkResult allocate();
 	VkResult map(VkDeviceSize offset, VkDeviceSize size, void **ppData);
+	virtual void unmap() {}
+	virtual VkResult flush(VkDeviceSize offset, VkDeviceSize size) { return VK_SUCCESS; }
 	VkDeviceSize getCommittedMemoryInBytes() const;
 	void *getOffsetPointer(VkDeviceSize pOffset) const;
+	virtual void *getDevicePointer(VkDeviceSize pOffset) const { return getOffsetPointer(pOffset); }
 	uint64_t getOpaqueCaptureAddress() const;
 	uint32_t getMemoryTypeIndex() const { return memoryTypeIndex; }
 

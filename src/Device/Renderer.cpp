@@ -32,6 +32,7 @@
 #include "Vulkan/VkDevice.hpp"
 #include "Vulkan/VkFence.hpp"
 #include "Vulkan/VkImageView.hpp"
+#include "Vulkan/VkPhysicalDevice.hpp"
 #include "Vulkan/VkPipelineLayout.hpp"
 #include "Vulkan/VkQueryPool.hpp"
 
@@ -231,7 +232,7 @@ Renderer::Renderer(vk::Device *device)
 	binningRoutine = binningProcessor.routine();
 
 #if USE_GROOM
-	gpuDevice = groom_device_open();
+	gpuDevice = device->getPhysicalDevice()->getGpuDevice();
 
 	deviceDevBuf = groom_mem_alloc(gpuDevice, sizeof(vk::Device));
 	drawDevBuf = groom_mem_alloc(gpuDevice, sizeof(DrawData));
@@ -285,7 +286,6 @@ Renderer::~Renderer()
 #if USE_GROOM
 	groom_mem_free(gpuDevice, deviceDevBuf);
 	groom_mem_free(gpuDevice, drawDevBuf);
-	groom_device_close(gpuDevice);
 #endif
 }
 
@@ -397,21 +397,8 @@ void Renderer::draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState
 	for(int i = 0; i < MAX_INTERFACE_COMPONENTS / 4; i++)
 	{
 		const sw::Stream &stream = inputs.getStream(i);
-#if USE_GROOM
-		data->input[i] = 0;
-		data->robustnessSize[i] = stream.robustnessSize;
-		draw->vertexDevBuf[i] = INVALID_DEVICE_BUFFER;
-
-		if(stream.robustnessSize > 0)
-		{
-			draw->vertexDevBuf[i] = groom_mem_alloc(gpuDevice, stream.robustnessSize);
-			uploadToDevice(gpuDevice, draw->vertexDevBuf[i], stream.buffer, stream.robustnessSize);
-			data->input[i] = (void *)groom_dev_buf_addr(draw->vertexDevBuf[i]);
-		}
-#else
 		data->input[i] = stream.buffer;
 		data->robustnessSize[i] = stream.robustnessSize;
-#endif
 		data->stride[i] = inputs.getVertexStride(i, vertexInputInterfaceState.hasDynamicVertexStride());
 	}
 
@@ -712,12 +699,6 @@ void DrawCall::teardown(vk::Device *device)
 	}
 
 #if USE_GROOM
-	for(int i = 0; i < MAX_INTERFACE_COMPONENTS / 4; i++)
-	{
-		if(vertexDevBuf[i] != INVALID_DEVICE_BUFFER)
-			groom_mem_free(gpuDevice, vertexDevBuf[i]);
-	}
-
 	if(vertexOutDevBuf != INVALID_DEVICE_BUFFER)
 		groom_mem_free(gpuDevice, vertexOutDevBuf);
 

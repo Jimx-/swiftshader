@@ -112,6 +112,13 @@ set(VULKAN_SRC_FILES
     VulkanPlatform.hpp
 )
 
+if(SWIFTSHADER_USE_GROOM)
+    list(APPEND VULKAN_SRC_FILES
+        VkDeviceMemoryGroom.cpp
+        VkDeviceMemoryGroom.hpp
+    )
+endif()
+
 if(WIN32)
     list(APPEND VULKAN_SRC_FILES
         Vulkan.rc
@@ -182,11 +189,19 @@ target_include_directories(vk_swiftshader
         ".."
 )
 
+if(SWIFTSHADER_USE_GROOM)
+target_include_directories(vk_swiftshader
+    PUBLIC
+        "${GROOM_ROOT}/driver/include"
+)
+endif()
+
 target_compile_options(vk_swiftshader
     PRIVATE
         ${ROOT_PROJECT_COMPILE_OPTIONS}
         ${VULKAN_COMPILE_OPTIONS}
 )
+
 
 target_compile_definitions(vk_swiftshader
     PRIVATE
