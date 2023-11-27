@@ -1480,7 +1480,7 @@ public:
 		{
 			// We need both a descriptor set object for updates and a descriptor set data pointer for routines
 			descriptorSetObjects[firstSet + i] = vk::Cast(pDescriptorSets[i]);
-			descriptorSets[firstSet + i] = vk::Cast(pDescriptorSets[i])->getDataAddress();
+			descriptorSets[firstSet + i] = vk::Cast(pDescriptorSets[i])->getDeviceAddress();
 		}
 
 		for(uint32_t i = 0; i < dynamicOffsetCount; i++)

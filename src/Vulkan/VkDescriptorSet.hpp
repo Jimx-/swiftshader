@@ -31,6 +31,9 @@ class PipelineLayout;
 struct alignas(16) DescriptorSetHeader
 {
 	DescriptorSetLayout *layout;
+#if USE_GROOM
+	uint64_t devAddr;
+#endif
 	marl::mutex mutex;
 };
 
@@ -45,6 +48,22 @@ public:
 	static void PrepareForSampling(const Array &descriptorSets, const PipelineLayout *layout, Device *device);
 
 	uint8_t *getDataAddress();  // Returns a pointer to the descriptor payload following the header.
+
+	uint8_t *getDeviceAddress()
+	{
+#if USE_GROOM
+		return reinterpret_cast<uint8_t *>(header.devAddr);
+#else
+		return getDataAddress();
+#endif
+	}
+
+#if USE_GROOM
+	void setDeviceAddress(uint64_t addr)
+	{
+		header.devAddr = addr;
+	}
+#endif
 
 	DescriptorSetHeader header;
 

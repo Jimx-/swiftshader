@@ -2501,7 +2501,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateDescriptorPool(VkDevice device, const VkD
 		extInfo = extInfo->pNext;
 	}
 
-	return vk::DescriptorPool::Create(pAllocator, pCreateInfo, pDescriptorPool);
+	return vk::DescriptorPool::Create(pAllocator, pCreateInfo, pDescriptorPool, vk::Cast(device));
 }
 
 VKAPI_ATTR void VKAPI_CALL vkDestroyDescriptorPool(VkDevice device, VkDescriptorPool descriptorPool, const VkAllocationCallbacks *pAllocator)

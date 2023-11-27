@@ -40,7 +40,7 @@ int main()
 			void main()
 			{
 				outColor = inColor;
-				gl_Position = vec4(inPos.xyz, 1.0);
+				gl_Position = ubo.model * vec4(inPos.xyz, 1.0);
 			})";
 
 		return tester.createShaderModule(vertexShader, EShLanguage::EShLangVertex);

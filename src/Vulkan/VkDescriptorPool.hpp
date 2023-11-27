@@ -18,12 +18,18 @@
 #include "VkObject.hpp"
 #include <set>
 
+#if USE_GROOM
+#	include <groom.h>
+#endif
+
 namespace vk {
+
+class Device;
 
 class DescriptorPool : public Object<DescriptorPool, VkDescriptorPool>
 {
 public:
-	DescriptorPool(const VkDescriptorPoolCreateInfo *pCreateInfo, void *mem);
+	DescriptorPool(const VkDescriptorPoolCreateInfo *pCreateInfo, void *mem, const Device *device);
 	void destroy(const VkAllocationCallbacks *pAllocator);
 
 	static size_t ComputeRequiredAllocationSize(const VkDescriptorPoolCreateInfo *pCreateInfo);
@@ -54,6 +60,11 @@ private:
 
 	uint8_t *pool = nullptr;
 	size_t poolSize = 0;
+
+#if USE_GROOM
+	groom_device_t gpuDevice;
+	groom_dev_buffer_t devPool;
+#endif
 };
 
 static inline DescriptorPool *Cast(VkDescriptorPool object)

@@ -26,6 +26,12 @@
 #include <cstddef>
 #include <cstring>
 
+#if USE_GROOM
+#	include "VkPhysicalDevice.hpp"
+#	include "VkDevice.hpp"
+#	include <groom.h>
+#endif
+
 namespace vk {
 
 static bool UsesImmutableSamplers(const VkDescriptorSetLayoutBinding &binding)
@@ -342,6 +348,10 @@ void DescriptorSetLayout::WriteDescriptorSet(Device *device, DescriptorSet *dstS
 	ASSERT(dstLayout);
 	ASSERT(binding.descriptorType == entry.descriptorType);
 
+#if USE_GROOM
+	auto gpuDevice = device->getPhysicalDevice()->getGpuDevice();
+#endif
+
 	size_t typeSize = 0;
 	uint8_t *memToWrite = dstLayout->getDescriptorPointer(dstSet, entry.dstBinding, entry.dstArrayElement, entry.descriptorCount, &typeSize);
 
@@ -573,13 +583,24 @@ void DescriptorSetLayout::WriteDescriptorSet(Device *device, DescriptorSet *dstS
 		{
 			const VkDescriptorBufferInfo *update = reinterpret_cast<const VkDescriptorBufferInfo *>(src + entry.offset + entry.stride * i);
 			const vk::Buffer *buffer = vk::Cast(update->buffer);
-			bufferDescriptor[i].ptr = buffer->getOffsetPointer(update->offset);
+			bufferDescriptor[i].ptr = buffer->getDevicePointer(update->offset);
 			bufferDescriptor[i].sizeInBytes = static_cast<int>((update->range == VK_WHOLE_SIZE) ? buffer->getSize() - update->offset : update->range);
 
 			// TODO(b/195684837): The spec states that "vertexBufferRangeSize is the byte size of the memory
 			// range bound to the vertex buffer binding", while the code below uses the full size of the buffer.
 			bufferDescriptor[i].robustnessSize = static_cast<int>(buffer->getSize() - update->offset);
 		}
+
+#if USE_GROOM
+		{
+			size_t writeSize = sizeof(BufferDescriptor) * entry.descriptorCount;
+			auto hostBuf = groom_buf_alloc(gpuDevice, writeSize);
+			auto *bufDesc = (BufferDescriptor *)groom_map_buffer(hostBuf);
+			memcpy(bufDesc, bufferDescriptor, writeSize);
+			groom_copy_to_device(reinterpret_cast<uint64_t>(dstSet->getDeviceAddress()), hostBuf, writeSize, 0);
+			groom_buf_free(hostBuf);
+		}
+#endif
 	}
 	else if(entry.descriptorType == VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK)
 	{
