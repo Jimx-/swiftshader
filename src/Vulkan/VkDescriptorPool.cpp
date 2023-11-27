@@ -17,6 +17,9 @@
 #include "VkDescriptorSet.hpp"
 #include "VkDescriptorSetLayout.hpp"
 
+#include "VkDevice.hpp"
+#include "VkPhysicalDevice.hpp"
+
 #include <algorithm>
 #include <memory>
 
@@ -31,15 +34,24 @@ inline uint8_t *asMemory(VkDescriptorSet descriptorSet)
 
 namespace vk {
 
-DescriptorPool::DescriptorPool(const VkDescriptorPoolCreateInfo *pCreateInfo, void *mem)
+DescriptorPool::DescriptorPool(const VkDescriptorPoolCreateInfo *pCreateInfo, void *mem, const vk::Device *device)
     : pool(static_cast<uint8_t *>(mem))
     , poolSize(ComputeRequiredAllocationSize(pCreateInfo))
+#if USE_GROOM
+    , gpuDevice(device->getPhysicalDevice()->getGpuDevice())
 {
+	devPool = groom_mem_alloc(gpuDevice, poolSize);
+#else
+{
+#endif
 }
 
 void DescriptorPool::destroy(const VkAllocationCallbacks *pAllocator)
 {
 	vk::freeHostMemory(pool, pAllocator);
+#if USE_GROOM
+	groom_mem_free(gpuDevice, devPool);
+#endif
 }
 
 size_t DescriptorPool::ComputeRequiredAllocationSize(const VkDescriptorPoolCreateInfo *pCreateInfo)
@@ -150,7 +162,11 @@ VkResult DescriptorPool::allocateSets(size_t *sizes, uint32_t numAllocs, VkDescr
 		{
 			for(uint32_t i = 0; i < numAllocs; i++)
 			{
-				pDescriptorSets[i] = *(new(memory) DescriptorSet());
+				auto *dset = new(memory) DescriptorSet();
+#if USE_GROOM
+				dset->setDeviceAddress(groom_dev_buf_addr(devPool) + (memory - pool));
+#endif
+				pDescriptorSets[i] = *dset;
 				nodes.insert(Node(memory, sizes[i]));
 				memory += sizes[i];
 			}
@@ -165,7 +181,11 @@ VkResult DescriptorPool::allocateSets(size_t *sizes, uint32_t numAllocs, VkDescr
 		uint8_t *memory = findAvailableMemory(sizes[i]);
 		if(memory)
 		{
-			pDescriptorSets[i] = *(new(memory) DescriptorSet());
+			auto *dset = new(memory) DescriptorSet();
+#if USE_GROOM
+			dset->setDeviceAddress(groom_dev_buf_addr(devPool) + (memory - pool));
+#endif
+			pDescriptorSets[i] = *dset;
 		}
 		else
 		{
