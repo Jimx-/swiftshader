@@ -816,6 +816,8 @@ void DrawCall::processVertices(vk::Device *device, DrawCall *draw, BatchData *ba
 	auto *code_buf = draw->vertexRoutine.getCode(code_size);
 	groom_upload_kernel(draw->gpuDevice, code_buf, code_size);
 
+	if(draw->vertexOutDevBuf != INVALID_DEVICE_BUFFER)
+		groom_mem_free(draw->gpuDevice, draw->vertexOutDevBuf);
 	draw->vertexOutDevBuf = groom_mem_alloc(draw->gpuDevice, sizeof(Vertex) * vertexTask.vertexCount);
 
 	groom_dev_buffer_t varg_dev;
@@ -881,6 +883,8 @@ void DrawCall::processPrimitives(vk::Device *device, DrawCall *draw, BatchData *
 	auto triangles = &batch->triangles[0];
 	auto primitives = &batch->primitives[0];
 #if USE_GROOM
+	if(draw->primitiveOutDevBuf != INVALID_DEVICE_BUFFER)
+		groom_mem_free(draw->gpuDevice, draw->primitiveOutDevBuf);
 	draw->primitiveOutDevBuf = groom_mem_alloc(draw->gpuDevice, sizeof(Primitive) * MaxBatchSize);
 #endif
 	batch->numVisible = draw->setupPrimitives(device, triangles, primitives, draw, batch->numPrimitives);
@@ -951,8 +955,9 @@ void DrawCall::processBinning(vk::Device *device, DrawCall *draw, BatchData *bat
 	primCount[0] = 0;
 
 #if USE_GROOM
+	if(draw->tileOutDevBuf != INVALID_DEVICE_BUFFER)
+		groom_mem_free(draw->gpuDevice, draw->tileOutDevBuf);
 	draw->tileOutDevBuf = groom_mem_alloc(draw->gpuDevice, sizeof(Tile) * draw->data->numTiles + sizeof(unsigned int) * numPrimitives);
-
 	groom_copy_buffer_to_device(primCountDev, primCountHost, sizeof(unsigned int) * draw->data->numTiles, 0);
 
 	code_buf = draw->binningRoutine.getCode(code_size);
@@ -991,6 +996,7 @@ void DrawCall::processBinning(vk::Device *device, DrawCall *draw, BatchData *bat
 		{
 			printf("%d %d %d %d\n", tile->startX, tile->startY,
 			       tile->count, tile->level);
+
 			tile = (Tile *)((char *)tile + sizeof(Tile) +
 			                tile->count * sizeof(unsigned int));
 		}

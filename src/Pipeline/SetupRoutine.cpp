@@ -58,6 +58,18 @@ void SetupRoutine::generate()
 		Pointer<Byte> v1 = tri + V1;
 		Pointer<Byte> v2 = tri + V2;
 
+		*Pointer<Int>(primitive + OFFSET(Primitive, edge[0].A)) = 0;
+		*Pointer<Int>(primitive + OFFSET(Primitive, edge[0].B)) = 0;
+		*Pointer<Int>(primitive + OFFSET(Primitive, edge[0].C)) = -65536;
+
+		*Pointer<Int>(primitive + OFFSET(Primitive, edge[1].A)) = 0;
+		*Pointer<Int>(primitive + OFFSET(Primitive, edge[1].B)) = 0;
+		*Pointer<Int>(primitive + OFFSET(Primitive, edge[1].C)) = -65536;
+
+		*Pointer<Int>(primitive + OFFSET(Primitive, edge[2].A)) = 0;
+		*Pointer<Int>(primitive + OFFSET(Primitive, edge[2].B)) = 0;
+		*Pointer<Int>(primitive + OFFSET(Primitive, edge[2].C)) = -65536;
+
 		Array<Int> X(16);
 		Array<Int> Y(16);
 
@@ -318,17 +330,18 @@ void SetupRoutine::generate()
 			edge2[0] = edge2[0] * subPixF / WxF;
 			edge2[1] = edge2[1] * subPixF / HxF;
 
-			*Pointer<Int>(primitive + OFFSET(Primitive, edge[0].A)) = RoundInt(edge0[0] * 65536.f);
-			*Pointer<Int>(primitive + OFFSET(Primitive, edge[0].B)) = RoundInt(edge0[1] * 65536.f);
-			*Pointer<Int>(primitive + OFFSET(Primitive, edge[0].C)) = RoundInt(edge0[2] * 65536.f);
+			float factor = (float)(1UL << 28);
+			*Pointer<Int>(primitive + OFFSET(Primitive, edge[0].A)) = RoundInt(edge0[0] * factor);
+			*Pointer<Int>(primitive + OFFSET(Primitive, edge[0].B)) = RoundInt(edge0[1] * factor);
+			*Pointer<Int>(primitive + OFFSET(Primitive, edge[0].C)) = RoundInt(edge0[2] * factor);
 
-			*Pointer<Int>(primitive + OFFSET(Primitive, edge[1].A)) = RoundInt(edge1[0] * 65536.f);
-			*Pointer<Int>(primitive + OFFSET(Primitive, edge[1].B)) = RoundInt(edge1[1] * 65536.f);
-			*Pointer<Int>(primitive + OFFSET(Primitive, edge[1].C)) = RoundInt(edge1[2] * 65536.f);
+			*Pointer<Int>(primitive + OFFSET(Primitive, edge[1].A)) = RoundInt(edge1[0] * factor);
+			*Pointer<Int>(primitive + OFFSET(Primitive, edge[1].B)) = RoundInt(edge1[1] * factor);
+			*Pointer<Int>(primitive + OFFSET(Primitive, edge[1].C)) = RoundInt(edge1[2] * factor);
 
-			*Pointer<Int>(primitive + OFFSET(Primitive, edge[2].A)) = RoundInt(edge2[0] * 65536.f);
-			*Pointer<Int>(primitive + OFFSET(Primitive, edge[2].B)) = RoundInt(edge2[1] * 65536.f);
-			*Pointer<Int>(primitive + OFFSET(Primitive, edge[2].C)) = RoundInt(edge2[2] * 65536.f);
+			*Pointer<Int>(primitive + OFFSET(Primitive, edge[2].A)) = RoundInt(edge2[0] * factor);
+			*Pointer<Int>(primitive + OFFSET(Primitive, edge[2].B)) = RoundInt(edge2[1] * factor);
+			*Pointer<Int>(primitive + OFFSET(Primitive, edge[2].C)) = RoundInt(edge2[2] * factor);
 		}
 
 		// Sort by minimum y
