@@ -70,6 +70,7 @@ struct SetupArg
 	uint32_t primitive;
 	uint32_t triangle;
 	uint32_t polygon;
+	uint32_t prim_mask;
 	uint32_t draw;
 	uint32_t num_primitives;
 };
@@ -80,6 +81,7 @@ struct PrebinningArg
 	uint32_t primitive;
 	uint32_t count;
 	uint32_t primCount;
+	uint32_t primMask;
 	uint32_t draw;
 	uint32_t numTiles;
 };
@@ -91,6 +93,7 @@ struct BinningArg
 	uint32_t count;
 	uint32_t primCount;
 	uint32_t tile;
+	uint32_t primMask;
 	uint32_t draw;
 	uint32_t numTiles;
 };
@@ -628,6 +631,7 @@ void Renderer::draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState
 	draw->drawDevBuf = drawDevBuf;
 	draw->vertexOutDevBuf = INVALID_DEVICE_BUFFER;
 	draw->primitiveOutDevBuf = INVALID_DEVICE_BUFFER;
+	draw->primMaskOutDevBuf = INVALID_DEVICE_BUFFER;
 	draw->tileOutDevBuf = INVALID_DEVICE_BUFFER;
 
 	uploadToDevice(gpuDevice, drawDevBuf, data, sizeof(DrawData));
@@ -705,6 +709,9 @@ void DrawCall::teardown(vk::Device *device)
 	if(primitiveOutDevBuf != INVALID_DEVICE_BUFFER)
 		groom_mem_free(gpuDevice, primitiveOutDevBuf);
 
+	if(primMaskOutDevBuf != INVALID_DEVICE_BUFFER)
+		groom_mem_free(gpuDevice, primMaskOutDevBuf);
+
 	if(tileOutDevBuf != INVALID_DEVICE_BUFFER)
 		groom_mem_free(gpuDevice, tileOutDevBuf);
 #endif
@@ -732,6 +739,7 @@ void DrawCall::run(vk::Device *device, const marl::Loan<DrawCall> &draw, marl::T
 		batch->firstPrimitive = batch->id * numPrimitivesPerBatch;
 		batch->numPrimitives = std::min(batch->firstPrimitive + numPrimitivesPerBatch, numPrimitives) - batch->firstPrimitive;
 		batch->tiles = nullptr;
+		batch->primMask = nullptr;
 
 		for(int cluster = 0; cluster < MaxClusterCount; cluster++)
 		{
@@ -886,8 +894,14 @@ void DrawCall::processPrimitives(vk::Device *device, DrawCall *draw, BatchData *
 	if(draw->primitiveOutDevBuf != INVALID_DEVICE_BUFFER)
 		groom_mem_free(draw->gpuDevice, draw->primitiveOutDevBuf);
 	draw->primitiveOutDevBuf = groom_mem_alloc(draw->gpuDevice, sizeof(Primitive) * MaxBatchSize);
+
+	if(draw->primMaskOutDevBuf != INVALID_DEVICE_BUFFER)
+		groom_mem_free(draw->gpuDevice, draw->primMaskOutDevBuf);
+	draw->primMaskOutDevBuf = groom_mem_alloc(draw->gpuDevice, MaxBatchSize);
+#else
+	batch->primMask = new uint8_t[batch->numPrimitives]{ 0 };
 #endif
-	batch->numVisible = draw->setupPrimitives(device, triangles, primitives, draw, batch->numPrimitives);
+	batch->numVisible = draw->setupPrimitives(device, triangles, primitives, batch->primMask, draw, batch->numPrimitives);
 }
 
 void DrawCall::processBinning(vk::Device *device, DrawCall *draw, BatchData *batch)
@@ -912,8 +926,9 @@ void DrawCall::processBinning(vk::Device *device, DrawCall *draw, BatchData *bat
 
 		parg->device = groom_dev_buf_addr(draw->deviceDevBuf);
 		parg->primitive = groom_dev_buf_addr(draw->primitiveOutDevBuf);
-		parg->count = batch->numVisible;
+		parg->count = batch->numPrimitives;
 		parg->primCount = groom_dev_buf_addr(primCountDev);
+		parg->primMask = groom_dev_buf_addr(draw->primMaskOutDevBuf);
 		parg->draw = groom_dev_buf_addr(draw->drawDevBuf);
 		parg->numTiles = draw->data->numTiles;
 
@@ -943,14 +958,13 @@ void DrawCall::processBinning(vk::Device *device, DrawCall *draw, BatchData *bat
 	auto primitives = &batch->primitives[0];
 
 	for(unsigned int i = 0; i < draw->data->numTiles; i++)
-		draw->prebinningRoutine(device, primitives, batch->numVisible, primCount.get(), draw->data, i);
+		draw->prebinningRoutine(device, primitives, batch->numPrimitives, primCount.get(), batch->primMask, draw->data, i);
 #endif
 
 	for(unsigned int i = 1; i < draw->data->numTiles; i++)
 		primCount[i] += primCount[i - 1];
 
 	auto numPrimitives = primCount[draw->data->numTiles - 1];
-	batch->tiles = reinterpret_cast<Tile *>(new uint8_t[sizeof(Tile) * draw->data->numTiles + sizeof(unsigned int) * numPrimitives]);
 	memmove(&primCount[1], &primCount[0], (draw->data->numTiles - 1) * sizeof(unsigned int));
 	primCount[0] = 0;
 
@@ -971,9 +985,10 @@ void DrawCall::processBinning(vk::Device *device, DrawCall *draw, BatchData *bat
 
 		barg->device = groom_dev_buf_addr(draw->deviceDevBuf);
 		barg->primitive = groom_dev_buf_addr(draw->primitiveOutDevBuf);
-		barg->count = batch->numVisible;
+		barg->count = batch->numPrimitives;
 		barg->primCount = groom_dev_buf_addr(primCountDev);
 		barg->tile = groom_dev_buf_addr(draw->tileOutDevBuf);
+		barg->primMask = groom_dev_buf_addr(draw->primMaskOutDevBuf);
 		barg->draw = groom_dev_buf_addr(draw->drawDevBuf);
 		barg->numTiles = draw->data->numTiles;
 
@@ -1007,8 +1022,9 @@ void DrawCall::processBinning(vk::Device *device, DrawCall *draw, BatchData *bat
 	groom_mem_free(draw->gpuDevice, barg_dev);
 	groom_mem_free(draw->gpuDevice, primCountDev);
 #else
+	batch->tiles = reinterpret_cast<Tile *>(new uint8_t[sizeof(Tile) * draw->data->numTiles + sizeof(unsigned int) * numPrimitives]);
 	for(unsigned int i = 0; i < draw->data->numTiles; i++)
-		draw->binningRoutine(device, primitives, batch->numVisible, primCount.get(), batch->tiles, draw->data, i);
+		draw->binningRoutine(device, primitives, batch->numPrimitives, primCount.get(), batch->tiles, batch->primMask, draw->data, i);
 #endif
 }
 
@@ -1139,7 +1155,7 @@ void DrawCall::processPrimitiveVertices(
 	}
 }
 
-int DrawCall::setupSolidTriangles(vk::Device *device, Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count)
+int DrawCall::setupSolidTriangles(vk::Device *device, Triangle *triangles, Primitive *primitives, uint8_t *mask, const DrawCall *drawCall, int count)
 {
 	// auto &state = drawCall->setupState;
 	// int ms = state.multiSampleCount;
@@ -1173,6 +1189,7 @@ int DrawCall::setupSolidTriangles(vk::Device *device, Triangle *triangles, Primi
 		sarg->primitive = groom_dev_buf_addr(drawCall->primitiveOutDevBuf);
 		sarg->triangle = groom_dev_buf_addr(drawCall->vertexOutDevBuf);
 		sarg->polygon = groom_dev_buf_addr(polygon_dev);
+		sarg->prim_mask = groom_dev_buf_addr(drawCall->primMaskOutDevBuf);
 		sarg->draw = groom_dev_buf_addr(drawCall->drawDevBuf);
 		sarg->num_primitives = count;
 
@@ -1241,6 +1258,7 @@ int DrawCall::setupSolidTriangles(vk::Device *device, Triangle *triangles, Primi
 		if(drawCall->setupRoutine(device, primitives, triangles, &polygons[0], data, i))
 		{
 			// primitives += ms;
+			mask[i] = 1;
 			visible++;
 		}
 	}
@@ -1249,7 +1267,7 @@ int DrawCall::setupSolidTriangles(vk::Device *device, Triangle *triangles, Primi
 	return visible;
 }
 
-int DrawCall::setupWireframeTriangles(vk::Device *device, Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count)
+int DrawCall::setupWireframeTriangles(vk::Device *device, Triangle *triangles, Primitive *primitives, uint8_t *mask, const DrawCall *drawCall, int count)
 {
 	auto &state = drawCall->setupState;
 
@@ -1304,7 +1322,7 @@ int DrawCall::setupWireframeTriangles(vk::Device *device, Triangle *triangles, P
 	return visible;
 }
 
-int DrawCall::setupPointTriangles(vk::Device *device, Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count)
+int DrawCall::setupPointTriangles(vk::Device *device, Triangle *triangles, Primitive *primitives, uint8_t *mask, const DrawCall *drawCall, int count)
 {
 	auto &state = drawCall->setupState;
 
@@ -1349,7 +1367,7 @@ int DrawCall::setupPointTriangles(vk::Device *device, Triangle *triangles, Primi
 	return visible;
 }
 
-int DrawCall::setupLines(vk::Device *device, Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count)
+int DrawCall::setupLines(vk::Device *device, Triangle *triangles, Primitive *primitives, uint8_t *mask, const DrawCall *drawCall, int count)
 {
 	auto &state = drawCall->setupState;
 
@@ -1370,7 +1388,7 @@ int DrawCall::setupLines(vk::Device *device, Triangle *triangles, Primitive *pri
 	return visible;
 }
 
-int DrawCall::setupPoints(vk::Device *device, Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count)
+int DrawCall::setupPoints(vk::Device *device, Triangle *triangles, Primitive *primitives, uint8_t *mask, const DrawCall *drawCall, int count)
 {
 	auto &state = drawCall->setupState;
 

@@ -12,7 +12,7 @@ namespace sw {
 struct Primitive;
 struct DrawData;
 
-using PrebinningFunction = FunctionT<void(const vk::Device *device, Primitive *primitive, unsigned int count, unsigned int *primCount, const DrawData *draw, unsigned int index)>;
+using PrebinningFunction = FunctionT<void(const vk::Device *device, Primitive *primitive, unsigned int count, unsigned int *primCount, uint8_t *primMask, const DrawData *draw, unsigned int index)>;
 
 class PrebinningProcessor
 {

@@ -12,17 +12,18 @@ struct binning_arg
 	unsigned int count;
 	unsigned int *primCount;
 	void *tile;
+	uint8_t* primMask;
 	void *draw;
 	unsigned int numTiles;
 };
 
-void __jit_function(void *device, void *primitive, unsigned int count, unsigned int *primCount, void *tile, void *draw, unsigned int index);
+void __jit_function(void *device, void *primitive, unsigned int count, unsigned int *primCount, void *tile, uint8_t* primMask, void *draw, unsigned int index);
 
 void binning_kernel(int task_id, void *arg)
 {
 	struct binning_arg *barg = (struct binning_arg *)arg;
 
-	__jit_function(barg->device, barg->primitive, barg->count, barg->primCount, barg->tile, barg->draw, task_id);
+	__jit_function(barg->device, barg->primitive, barg->count, barg->primCount, barg->tile, barg->primMask, barg->draw, task_id);
 }
 
 int main()

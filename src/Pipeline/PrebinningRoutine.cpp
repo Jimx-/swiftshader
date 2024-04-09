@@ -20,8 +20,9 @@ void PrebinningRoutine::generate()
 		Pointer<Byte> primitive(function.Arg<1>());
 		Int count(function.Arg<2>());
 		Pointer<UInt> primCount(function.Arg<3>());
-		Pointer<Byte> data(function.Arg<4>());
-		UInt index(function.Arg<5>());
+		Pointer<Byte> primMask(function.Arg<4>());
+		Pointer<Byte> data(function.Arg<5>());
+		UInt index(function.Arg<6>());
 
 		UInt tileSizeLog2 = *Pointer<UInt>(data + OFFSET(DrawData, tileSizeLog2));
 		UInt tileStride = *Pointer<UInt>(data + OFFSET(DrawData, tileStride));
@@ -45,25 +46,30 @@ void PrebinningRoutine::generate()
 		Int i = 0;
 		Do
 		{
-			Pointer<Byte> curPrim(primitive + i * sizeof(Primitive));
-			Int edge[3];
-			Int outside[3];
+			Pointer<Byte> mask(primMask + i);
 
-			for(int e = 0; e < 3; e++)
+			If(*mask != Byte(0))
 			{
-				Int4 sample;
+				Pointer<Byte> curPrim(primitive + i * sizeof(Primitive));
+				Int edge[3];
+				Int outside[3];
 
-				edge[0] = *Pointer<Int>(curPrim + OFFSET(Primitive, edge[e].A));
-				edge[1] = *Pointer<Int>(curPrim + OFFSET(Primitive, edge[e].B));
-				edge[2] = *Pointer<Int>(curPrim + OFFSET(Primitive, edge[e].C));
+				for(int e = 0; e < 3; e++)
+				{
+					Int4 sample;
 
-				sample = Int4(edge[0]) * X + Int4(edge[1]) * Y + Int4(edge[2]);
-				outside[e] = SignMask(sample);
-			}
+					edge[0] = *Pointer<Int>(curPrim + OFFSET(Primitive, edge[e].A));
+					edge[1] = *Pointer<Int>(curPrim + OFFSET(Primitive, edge[e].B));
+					edge[2] = *Pointer<Int>(curPrim + OFFSET(Primitive, edge[e].C));
 
-			If((outside[0] != 0xf) && (outside[1] != 0xf) && (outside[2] != 0xf))
-			{
-				hit++;
+					sample = Int4(edge[0]) * X + Int4(edge[1]) * Y + Int4(edge[2]);
+					outside[e] = SignMask(sample);
+				}
+
+				If((outside[0] != 0xf) && (outside[1] != 0xf) && (outside[2] != 0xf))
+				{
+					hit++;
+				}
 			}
 
 			i++;
