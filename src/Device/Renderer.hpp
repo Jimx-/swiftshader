@@ -55,7 +55,7 @@ class Resource;
 struct Constants;
 
 static constexpr int MaxBatchSize = 128;
-static constexpr int MaxBatchCount = 16;
+static constexpr int MaxBatchCount = 1;
 static constexpr int MaxClusterCount = 1;
 static constexpr int MaxDrawCount = 16;
 
