@@ -15,11 +15,12 @@ struct setup_arg
 	void *primitive;
 	void *triangle;
 	void *polygon;
+	uint8_t* prim_mask;
 	void *draw;
 	unsigned int num_primtives;
 };
 
-void __jit_function(void *device, void *primitive, void *triangle, void *polygon, void *draw, unsigned int index);
+int __jit_function(void *device, void *primitive, void *triangle, void *polygon, void *draw, unsigned int index);
 
 float rintf(float x)
 {
@@ -53,7 +54,7 @@ void setup_kernel(int task_id, void *arg)
 {
 	struct setup_arg *sarg = (struct setup_arg *)arg;
 
-	__jit_function(sarg->device, sarg->primitive, sarg->triangle, sarg->polygon, sarg->draw, task_id);
+	sarg->prim_mask[task_id] = (uint8_t)__jit_function(sarg->device, sarg->primitive, sarg->triangle, sarg->polygon, sarg->draw, task_id);
 }
 
 int main()

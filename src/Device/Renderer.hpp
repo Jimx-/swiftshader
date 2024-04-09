@@ -132,6 +132,7 @@ struct DrawCall
 		TriangleBatch triangles;
 		PrimitiveBatch primitives;
 		Tile *tiles;
+		uint8_t *primMask;
 		VertexTask vertexTask;
 		unsigned int id;
 		unsigned int firstPrimitive;
@@ -143,11 +144,13 @@ struct DrawCall
 		{
 			delete tiles;
 			tiles = nullptr;
+			delete primMask;
+			primMask = nullptr;
 		}
 	};
 
 	using Pool = marl::BoundedPool<DrawCall, MaxDrawCount, marl::PoolPolicy::Preserve>;
-	using SetupFunction = int (*)(vk::Device *device, Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
+	using SetupFunction = int (*)(vk::Device *device, Triangle *triangles, Primitive *primitives, uint8_t *mask, const DrawCall *drawCall, int count);
 
 	DrawCall();
 	~DrawCall();
@@ -205,6 +208,7 @@ struct DrawCall
 
 	groom_dev_buffer_t vertexOutDevBuf;
 	groom_dev_buffer_t primitiveOutDevBuf;
+	groom_dev_buffer_t primMaskOutDevBuf;
 	groom_dev_buffer_t tileOutDevBuf;
 #endif
 
@@ -217,11 +221,11 @@ struct DrawCall
 	    VkPrimitiveTopology topology,
 	    VkProvokingVertexModeEXT provokingVertexMode);
 
-	static int setupSolidTriangles(vk::Device *device, Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
-	static int setupWireframeTriangles(vk::Device *device, Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
-	static int setupPointTriangles(vk::Device *device, Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
-	static int setupLines(vk::Device *device, Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
-	static int setupPoints(vk::Device *device, Triangle *triangles, Primitive *primitives, const DrawCall *drawCall, int count);
+	static int setupSolidTriangles(vk::Device *device, Triangle *triangles, Primitive *primitives, uint8_t *mask, const DrawCall *drawCall, int count);
+	static int setupWireframeTriangles(vk::Device *device, Triangle *triangles, Primitive *primitives, uint8_t *mask, const DrawCall *drawCall, int count);
+	static int setupPointTriangles(vk::Device *device, Triangle *triangles, Primitive *primitives, uint8_t *mask, const DrawCall *drawCall, int count);
+	static int setupLines(vk::Device *device, Triangle *triangles, Primitive *primitives, uint8_t *mask, const DrawCall *drawCall, int count);
+	static int setupPoints(vk::Device *device, Triangle *triangles, Primitive *primitives, uint8_t *mask, const DrawCall *drawCall, int count);
 
 	static bool setupLine(vk::Device *device, Primitive &primitive, Triangle &triangle, const DrawCall &draw);
 	static bool setupPoint(vk::Device *device, Primitive &primitive, Triangle &triangle, const DrawCall &draw);

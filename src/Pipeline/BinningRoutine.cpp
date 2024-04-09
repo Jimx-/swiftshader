@@ -21,8 +21,9 @@ void BinningRoutine::generate()
 		UInt count(function.Arg<2>());
 		Pointer<UInt> primCount(function.Arg<3>());
 		Pointer<Byte> tile(function.Arg<4>());
-		Pointer<Byte> data(function.Arg<5>());
-		UInt index(function.Arg<6>());
+		Pointer<Byte> primMask(function.Arg<5>());
+		Pointer<Byte> data(function.Arg<6>());
+		UInt index(function.Arg<7>());
 
 		UInt prefixSum = *Pointer<UInt>(Pointer<Byte>(primCount) + sizeof(uint32_t) * index);
 		Pointer<Byte> curTile(tile + index * sizeof(Tile) + prefixSum * sizeof(unsigned int));
@@ -50,27 +51,32 @@ void BinningRoutine::generate()
 		UInt i = 0;
 		Do
 		{
-			Pointer<Byte> curPrim(primitive + i * sizeof(Primitive));
-			Int edge[3];
-			Int outside[3];
+			Pointer<Byte> mask(primMask + i);
 
-			for(int e = 0; e < 3; e++)
+			If(*mask != Byte(0))
 			{
-				Int4 sample;
+				Pointer<Byte> curPrim(primitive + i * sizeof(Primitive));
+				Int edge[3];
+				Int outside[3];
 
-				edge[0] = *Pointer<Int>(curPrim + OFFSET(Primitive, edge[e].A));
-				edge[1] = *Pointer<Int>(curPrim + OFFSET(Primitive, edge[e].B));
-				edge[2] = *Pointer<Int>(curPrim + OFFSET(Primitive, edge[e].C));
+				for(int e = 0; e < 3; e++)
+				{
+					Int4 sample;
 
-				sample = Int4(edge[0]) * X + Int4(edge[1]) * Y + Int4(edge[2]);
-				outside[e] = SignMask(sample);
-			}
+					edge[0] = *Pointer<Int>(curPrim + OFFSET(Primitive, edge[e].A));
+					edge[1] = *Pointer<Int>(curPrim + OFFSET(Primitive, edge[e].B));
+					edge[2] = *Pointer<Int>(curPrim + OFFSET(Primitive, edge[e].C));
 
-			If((outside[0] != 0xf) && (outside[1] != 0xf) && (outside[2] != 0xf))
-			{
-				hit++;
-				*pidList = i;
-				pidList = Pointer<UInt>(Pointer<Byte>(pidList) + sizeof(unsigned int));
+					sample = Int4(edge[0]) * X + Int4(edge[1]) * Y + Int4(edge[2]);
+					outside[e] = SignMask(sample);
+				}
+
+				If((outside[0] != 0xf) && (outside[1] != 0xf) && (outside[2] != 0xf))
+				{
+					hit++;
+					*pidList = i;
+					pidList = Pointer<UInt>(Pointer<Byte>(pidList) + sizeof(unsigned int));
+				}
 			}
 
 			i++;

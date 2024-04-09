@@ -11,17 +11,18 @@ struct prebinning_arg
 	void *primitive;
 	unsigned int count;
 	unsigned int *primCount;
+	uint8_t* primMask;
 	void *draw;
 	unsigned int numTiles;
 };
 
-void __jit_function(void *device, void *primitive, unsigned int count, unsigned int *primCount, void *draw, unsigned int index);
+void __jit_function(void *device, void *primitive, unsigned int count, unsigned int *primCount, uint8_t* primMask, void *draw, unsigned int index);
 
 void prebinning_kernel(int task_id, void *arg)
 {
 	struct prebinning_arg *parg = (struct prebinning_arg *)arg;
 
-	__jit_function(parg->device, parg->primitive, parg->count, parg->primCount, parg->draw, task_id);
+	__jit_function(parg->device, parg->primitive, parg->count, parg->primCount, parg->primMask, parg->draw, task_id);
 }
 
 int main()
