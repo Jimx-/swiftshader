@@ -152,7 +152,11 @@ void TileRasterizer::scanTile(Pointer<Byte> topTile, Pointer<Byte> tileQueue)
 		}
 		Else
 		{
-			rasterize(startX, startY);
+			If(startX >= *Pointer<Int>(data + OFFSET(DrawData, scissorX0)) &&
+			   startX + 2 <= *Pointer<Int>(data + OFFSET(DrawData, scissorX1)) &&
+			   startY >= *Pointer<Int>(data + OFFSET(DrawData, scissorY0)) &&
+			   startY + 2 <= *Pointer<Int>(data + OFFSET(DrawData, scissorY1)))
+			    rasterize(startX, startY);
 		}
 	}
 	Until(head >= tail);
