@@ -2642,7 +2642,14 @@ void PixelRoutine::writeColor(int index, const Pointer<Byte> &cBuffer, const Int
 			{
 				mergedMask &= *Pointer<UInt2>(constants + OFFSET(Constants, maskB4Q[writeMask]));
 			}
-			*Pointer<UInt2>(buffer) = (packedCol & mergedMask) | (value & ~mergedMask);
+			If(Extract(mergedMask, 0) != 0)
+			{
+				*Pointer<UInt>(buffer) = (Extract(packedCol, 0) & Extract(mergedMask, 0)) | (Extract(value, 0) & ~Extract(mergedMask, 0));
+			}
+			If(Extract(mergedMask, 1) != 0)
+			{
+				*Pointer<UInt>(buffer + 4) = (Extract(packedCol, 1) & Extract(mergedMask, 1)) | (Extract(value, 1) & ~Extract(mergedMask, 1));
+			}
 
 			buffer += pitchB;
 
@@ -2660,7 +2667,14 @@ void PixelRoutine::writeColor(int index, const Pointer<Byte> &cBuffer, const Int
 			{
 				mergedMask &= *Pointer<UInt2>(constants + OFFSET(Constants, maskB4Q[writeMask]));
 			}
-			*Pointer<UInt2>(buffer) = (packedCol & mergedMask) | (value & ~mergedMask);
+			If(Extract(mergedMask, 0) != 0)
+			{
+				*Pointer<UInt>(buffer) = (Extract(packedCol, 0) & Extract(mergedMask, 0)) | (Extract(value, 0) & ~Extract(mergedMask, 0));
+			}
+			If(Extract(mergedMask, 1) != 0)
+			{
+				*Pointer<UInt>(buffer + 4) = (Extract(packedCol, 1) & Extract(mergedMask, 1)) | (Extract(value, 1) & ~Extract(mergedMask, 1));
+			}
 		}
 		break;
 	case VK_FORMAT_A2B10G10R10_UINT_PACK32:
