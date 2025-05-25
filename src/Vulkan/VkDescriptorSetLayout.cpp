@@ -354,6 +354,10 @@ void DescriptorSetLayout::WriteDescriptorSet(Device *device, DescriptorSet *dstS
 
 	size_t typeSize = 0;
 	uint8_t *memToWrite = dstLayout->getDescriptorPointer(dstSet, entry.dstBinding, entry.dstArrayElement, entry.descriptorCount, &typeSize);
+#if USE_GROOM
+	size_t byteOffset = memToWrite - dstSet->getDataAddress();
+	uint64_t devMemToWrite = reinterpret_cast<uint64_t>(dstSet->getDeviceAddress()) + byteOffset;
+#endif
 
 	ASSERT(reinterpret_cast<intptr_t>(memToWrite) % 16 == 0);  // Each descriptor must be 16-byte aligned.
 
@@ -597,7 +601,7 @@ void DescriptorSetLayout::WriteDescriptorSet(Device *device, DescriptorSet *dstS
 			auto hostBuf = groom_buf_alloc(gpuDevice, writeSize);
 			auto *bufDesc = (BufferDescriptor *)groom_map_buffer(hostBuf);
 			memcpy(bufDesc, bufferDescriptor, writeSize);
-			groom_copy_to_device(reinterpret_cast<uint64_t>(dstSet->getDeviceAddress()), hostBuf, writeSize, 0);
+			groom_copy_to_device(devMemToWrite, hostBuf, writeSize, 0);
 			groom_buf_free(hostBuf);
 		}
 #endif
