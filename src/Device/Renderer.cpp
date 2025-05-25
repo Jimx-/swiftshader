@@ -61,7 +61,7 @@ struct VertexArg
 	uint32_t batch;
 	uint32_t vertextask;
 	uint32_t draw;
-	uint32_t cache[32];
+	uint32_t cache[96];
 };
 
 struct SetupArg
@@ -799,8 +799,8 @@ void DrawCall::processVertices(vk::Device *device, DrawCall *draw, BatchData *ba
 		VertexCache *vcache = (VertexCache *)groom_map_buffer(vcache_host);
 		memset(vcache->tag, 0xff, sizeof(vcache->tag));
 
-		vcache_dev = groom_mem_alloc(draw->gpuDevice, sizeof(VertexCache) * 32);
-		for(int i = 0; i < 32; i++)
+		vcache_dev = groom_mem_alloc(draw->gpuDevice, sizeof(VertexCache) * 96);
+		for(int i = 0; i < 96; i++)
 			groom_copy_to_device(
 			    groom_dev_buf_addr(vcache_dev) + i * sizeof(VertexCache) +
 			        OFFSET(VertexCache, tag),
@@ -834,7 +834,7 @@ void DrawCall::processVertices(vk::Device *device, DrawCall *draw, BatchData *ba
 		varg->batch = groom_dev_buf_addr(batch_dev);
 		varg->vertextask = groom_dev_buf_addr(vtask_dev);
 		varg->draw = groom_dev_buf_addr(draw->drawDevBuf);
-		for(int i = 0; i < 32; i++)
+		for(int i = 0; i < 96; i++)
 			varg->cache[i] =
 			    groom_dev_buf_addr(vcache_dev) + i * sizeof(VertexCache);
 

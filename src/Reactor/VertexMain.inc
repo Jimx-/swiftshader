@@ -9,7 +9,7 @@ R"(
 #define EPS FLT_EPSILON
 static const float toint = 1 / EPS;
 
-#define NR_THREADS 32
+#define NR_THREADS 96
 
 struct vertex_task
 {
