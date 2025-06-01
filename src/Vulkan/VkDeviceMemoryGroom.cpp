@@ -48,10 +48,16 @@ VkResult GroomDeviceMemory::allocateBuffer()
 void GroomDeviceMemory::freeBuffer()
 {
 	if(host_buffer != INVALID_BUFFER)
+	{
 		groom_buf_free(host_buffer);
+		host_buffer = INVALID_BUFFER;
+	}
 
 	if(dev_buffer != INVALID_DEVICE_BUFFER)
+	{
 		groom_mem_free(gpuDevice, dev_buffer);
+		dev_buffer = INVALID_DEVICE_BUFFER;
+	}
 }
 
 VkResult GroomDeviceMemory::flush(VkDeviceSize offset, VkDeviceSize size)
