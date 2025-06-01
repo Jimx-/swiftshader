@@ -2764,6 +2764,60 @@ RValue<Pointer<Byte>> ConstantData(const void *data, size_t size);
 
 template<>
 template<class S>
+Pointer<Short>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
+    : alignment(2)
+{
+	Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(Short::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<Short2>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
+    : alignment(2)
+{
+	Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(Short2::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<Short4>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
+    : alignment(2)
+{
+	Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(Short4::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<UShort>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
+    : alignment(2)
+{
+	Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(UShort::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<UShort2>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
+    : alignment(2)
+{
+	Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(UShort2::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<UShort4>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
+    : alignment(2)
+{
+	Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(UShort4::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
 Pointer<Int>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
     : alignment(4)
 {
@@ -2840,6 +2894,102 @@ Pointer<Float4>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
     : alignment(4)
 {
 	Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(Float4::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<Pointer<Byte>>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
+    : alignment(4)
+{
+	Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(Pointer<Byte>::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<Pointer<Int>>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
+    : alignment(4)
+{
+	Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(Pointer<Int>::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<Pointer<UInt>>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
+    : alignment(4)
+{
+	Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(Pointer<UInt>::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<Pointer<Float>>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
+    : alignment(4)
+{
+	Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(Pointer<Float>::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<Short>::Pointer(const Pointer<S> &pointer, int alignment)
+    : alignment(2)
+{
+	Value *pointerS = pointer.loadValue();
+	Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(Short::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<Short2>::Pointer(const Pointer<S> &pointer, int alignment)
+    : alignment(2)
+{
+	Value *pointerS = pointer.loadValue();
+	Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(Short2::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<Short4>::Pointer(const Pointer<S> &pointer, int alignment)
+    : alignment(2)
+{
+	Value *pointerS = pointer.loadValue();
+	Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(Short4::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<UShort>::Pointer(const Pointer<S> &pointer, int alignment)
+    : alignment(2)
+{
+	Value *pointerS = pointer.loadValue();
+	Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(UShort::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<UShort2>::Pointer(const Pointer<S> &pointer, int alignment)
+    : alignment(2)
+{
+	Value *pointerS = pointer.loadValue();
+	Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(UShort2::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<UShort4>::Pointer(const Pointer<S> &pointer, int alignment)
+    : alignment(2)
+{
+	Value *pointerS = pointer.loadValue();
+	Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(UShort4::type()));
 	this->storeValue(pointerT);
 }
 
@@ -2933,9 +3083,91 @@ Pointer<Float4>::Pointer(const Pointer<S> &pointer, int alignment)
 	this->storeValue(pointerT);
 }
 
+template<>
+template<class S>
+Pointer<Pointer<Byte>>::Pointer(const Pointer<S> &pointer, int alignment)
+    : alignment(4)
+{
+	Value *pointerS = pointer.loadValue();
+	Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(Pointer<Byte>::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<Pointer<Int>>::Pointer(const Pointer<S> &pointer, int alignment)
+    : alignment(4)
+{
+	Value *pointerS = pointer.loadValue();
+	Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(Pointer<Int>::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<Pointer<UInt>>::Pointer(const Pointer<S> &pointer, int alignment)
+    : alignment(4)
+{
+	Value *pointerS = pointer.loadValue();
+	Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(Pointer<UInt>::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<Pointer<Float>>::Pointer(const Pointer<S> &pointer, int alignment)
+    : alignment(4)
+{
+	Value *pointerS = pointer.loadValue();
+	Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(Pointer<Float>::type()));
+	this->storeValue(pointerT);
+}
+
 template<class T>
 Pointer<T>::Pointer(Argument<Pointer<T>> argument)
     : alignment(1)
+{
+	this->store(argument.rvalue());
+}
+
+template<>
+inline Pointer<Short>::Pointer(Argument<Pointer<Short>> argument)
+    : alignment(2)
+{
+	this->store(argument.rvalue());
+}
+
+template<>
+inline Pointer<Short2>::Pointer(Argument<Pointer<Short2>> argument)
+    : alignment(2)
+{
+	this->store(argument.rvalue());
+}
+
+template<>
+inline Pointer<Short4>::Pointer(Argument<Pointer<Short4>> argument)
+    : alignment(2)
+{
+	this->store(argument.rvalue());
+}
+
+template<>
+inline Pointer<UShort>::Pointer(Argument<Pointer<UShort>> argument)
+    : alignment(2)
+{
+	this->store(argument.rvalue());
+}
+
+template<>
+inline Pointer<UShort2>::Pointer(Argument<Pointer<UShort2>> argument)
+    : alignment(2)
+{
+	this->store(argument.rvalue());
+}
+
+template<>
+inline Pointer<UShort4>::Pointer(Argument<Pointer<UShort4>> argument)
+    : alignment(2)
 {
 	this->store(argument.rvalue());
 }
@@ -2998,6 +3230,34 @@ inline Pointer<Float2>::Pointer(Argument<Pointer<Float2>> argument)
 
 template<>
 inline Pointer<Float4>::Pointer(Argument<Pointer<Float4>> argument)
+    : alignment(4)
+{
+	this->store(argument.rvalue());
+}
+
+template<>
+inline Pointer<Pointer<Byte>>::Pointer(Argument<Pointer<Pointer<Byte>>> argument)
+    : alignment(4)
+{
+	this->store(argument.rvalue());
+}
+
+template<>
+inline Pointer<Pointer<Int>>::Pointer(Argument<Pointer<Pointer<Int>>> argument)
+    : alignment(4)
+{
+	this->store(argument.rvalue());
+}
+
+template<>
+inline Pointer<Pointer<UInt>>::Pointer(Argument<Pointer<Pointer<UInt>>> argument)
+    : alignment(4)
+{
+	this->store(argument.rvalue());
+}
+
+template<>
+inline Pointer<Pointer<Float>>::Pointer(Argument<Pointer<Pointer<Float>>> argument)
     : alignment(4)
 {
 	this->store(argument.rvalue());
@@ -3613,7 +3873,7 @@ enum
 // The OFFSET macro is a generalization of the offsetof() macro defined in <cstddef>.
 // It allows e.g. getting the offset of array elements, even when indexed dynamically.
 // We cast the address '32' and subtract it again, because null-dereference is undefined behavior.
-#define OFFSET(s, m) ((int)(size_t) & reinterpret_cast<const volatile char &>((((s *)32)->m)) - 32)
+#define OFFSET(s, m) ((int)(size_t)&reinterpret_cast<const volatile char &>((((s *)32)->m)) - 32)
 
 }  // namespace rr
 

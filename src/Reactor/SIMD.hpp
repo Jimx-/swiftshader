@@ -735,6 +735,84 @@ inline void SIMD::Pointer::Store(RValue<T> val, OutOfBoundsBehavior robustness, 
 	Store(T(val), robustness, mask, atomic, order);
 }
 
+template<>
+template<class S>
+Pointer<SIMD::Int>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
+    : alignment(4)
+{
+	Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(SIMD::Int::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<SIMD::UInt>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
+    : alignment(4)
+{
+	Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(SIMD::UInt::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<SIMD::Float>::Pointer(RValue<Pointer<S>> pointerS, int alignment)
+    : alignment(4)
+{
+	Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(SIMD::Float::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<SIMD::Int>::Pointer(const Pointer<S> &pointer, int alignment)
+    : alignment(4)
+{
+	Value *pointerS = pointer.loadValue();
+	Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(SIMD::Int::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<SIMD::UInt>::Pointer(const Pointer<S> &pointer, int alignment)
+    : alignment(4)
+{
+	Value *pointerS = pointer.loadValue();
+	Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(SIMD::UInt::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+template<class S>
+Pointer<SIMD::Float>::Pointer(const Pointer<S> &pointer, int alignment)
+    : alignment(4)
+{
+	Value *pointerS = pointer.loadValue();
+	Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(SIMD::Float::type()));
+	this->storeValue(pointerT);
+}
+
+template<>
+inline Pointer<SIMD::Int>::Pointer(Argument<Pointer<SIMD::Int>> argument)
+    : alignment(4)
+{
+	this->store(argument.rvalue());
+}
+
+template<>
+inline Pointer<SIMD::UInt>::Pointer(Argument<Pointer<SIMD::UInt>> argument)
+    : alignment(4)
+{
+	this->store(argument.rvalue());
+}
+
+template<>
+inline Pointer<SIMD::Float>::Pointer(Argument<Pointer<SIMD::Float>> argument)
+    : alignment(4)
+{
+	this->store(argument.rvalue());
+}
+
 }  // namespace rr
 
 #endif  // rr_SIMD_hpp
