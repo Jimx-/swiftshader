@@ -621,6 +621,14 @@ void Renderer::draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState
 		data->pushConstants = pushConstants;
 	}
 
+	// Sampler cache
+	{
+		device->updateSamplingRoutineSnapshotCache();
+		const vk::Device::SamplingRoutineCache *cache = device->getSamplingRoutineCache();
+		data->samplerSnapshot = cache->getSamplerSnapshot();
+		data->samplerCount = (unsigned int)cache->getSamplerCount();
+	}
+
 #if USE_GROOM
 	draw->gpuDevice = gpuDevice;
 	draw->deviceDevBuf = deviceDevBuf;

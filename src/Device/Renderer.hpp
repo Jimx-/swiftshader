@@ -98,6 +98,9 @@ struct DrawData
 	unsigned int tileStride;
 	unsigned int numTiles;
 
+	const void *samplerSnapshot;
+	unsigned int samplerCount;
+
 	unsigned int *colorBuffer[MAX_COLOR_BUFFERS];
 	int colorPitchB[MAX_COLOR_BUFFERS];
 	int colorSliceB[MAX_COLOR_BUFFERS];

@@ -38,7 +38,7 @@ SpirvEmitter::ImageSampler *SpirvEmitter::getImageSampler(const vk::Device *devi
 
 	vk::Device::SamplingRoutineCache::Key key = { signature, samplerId, imageViewId };
 
-	auto createSamplingRoutine = [device](const vk::Device::SamplingRoutineCache::Key &key) {
+	auto createSamplingRoutine = [device, samplerId](const vk::Device::SamplingRoutineCache::Key &key) {
 		ImageInstructionSignature instruction(key.instruction);
 		const vk::Identifier::State imageViewState = vk::Identifier(key.imageView).getState();
 		const vk::SamplerState *vkSamplerState = (key.sampler != 0) ? device->findSampler(key.sampler) : nullptr;
@@ -120,12 +120,12 @@ SpirvEmitter::ImageSampler *SpirvEmitter::getImageSampler(const vk::Device *devi
 		}
 		else if(samplerMethod == Write)
 		{
-			return emitWriteRoutine(instruction, samplerState);
+			return emitWriteRoutine(instruction, samplerState, samplerId);
 		}
 		else
 			ASSERT(false);
 
-		return emitSamplerRoutine(instruction, samplerState);
+		return emitSamplerRoutine(instruction, samplerState, samplerId);
 	};
 
 	vk::Device::SamplingRoutineCache *cache = device->getSamplingRoutineCache();
@@ -134,7 +134,7 @@ SpirvEmitter::ImageSampler *SpirvEmitter::getImageSampler(const vk::Device *devi
 	return (ImageSampler *)(routine->getEntry());
 }
 
-std::shared_ptr<rr::Routine> SpirvEmitter::emitWriteRoutine(ImageInstructionSignature instruction, const Sampler &samplerState)
+std::shared_ptr<rr::Routine> SpirvEmitter::emitWriteRoutine(ImageInstructionSignature instruction, const Sampler &samplerState, uint32_t samplerId)
 {
 	// TODO(b/129523279): Hold a separate mutex lock for the sampler being built.
 	rr::Function<Void(Pointer<Byte>, Pointer<SIMD::Float>, Pointer<SIMD::Float>, Pointer<Byte>)> function;
@@ -147,10 +147,10 @@ std::shared_ptr<rr::Routine> SpirvEmitter::emitWriteRoutine(ImageInstructionSign
 		WriteImage(instruction, descriptor, coord, texelAndMask, samplerState.textureFormat);
 	}
 
-	return function("sampler");
+	return function("sampler_%0.8X_%0.8X", samplerId, instruction.signature);
 }
 
-std::shared_ptr<rr::Routine> SpirvEmitter::emitSamplerRoutine(ImageInstructionSignature instruction, const Sampler &samplerState)
+std::shared_ptr<rr::Routine> SpirvEmitter::emitSamplerRoutine(ImageInstructionSignature instruction, const Sampler &samplerState, uint32_t samplerId)
 {
 	// TODO(b/129523279): Hold a separate mutex lock for the sampler being built.
 	rr::Function<Void(Pointer<Byte>, Pointer<SIMD::Float>, Pointer<SIMD::Float>, Pointer<Byte>)> function;
@@ -269,7 +269,7 @@ std::shared_ptr<rr::Routine> SpirvEmitter::emitSamplerRoutine(ImageInstructionSi
 		}
 	}
 
-	return function("sampler");
+	return function("sampler_%0.8X_%0.8X", samplerId, instruction.signature);
 }
 
 sw::FilterType SpirvEmitter::convertFilterMode(const vk::SamplerState *samplerState, VkImageViewType imageViewType, SamplerMethod samplerMethod)

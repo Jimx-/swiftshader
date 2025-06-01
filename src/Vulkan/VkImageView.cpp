@@ -425,4 +425,17 @@ void *ImageView::getOffsetPointer(const VkOffset3D &offset, VkImageAspectFlagBit
 	return getImage(usage)->getTexelPointer(offset, imageSubresource);
 }
 
+void *ImageView::getDeviceOffsetPointer(const VkOffset3D &offset, VkImageAspectFlagBits aspect, uint32_t mipLevel, uint32_t layer, Usage usage) const
+{
+	ASSERT(mipLevel < subresourceRange.levelCount);
+
+	VkImageSubresource imageSubresource = {
+		static_cast<VkImageAspectFlags>(aspect),
+		subresourceRange.baseMipLevel + mipLevel,
+		subresourceRange.baseArrayLayer + layer,
+	};
+
+	return getImage(usage)->getDeviceTexelPointer(offset, imageSubresource);
+}
+
 }  // namespace vk

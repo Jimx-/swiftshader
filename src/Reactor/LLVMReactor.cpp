@@ -558,6 +558,7 @@ static const DeviceRoutineMain dev_routines[] = {
 	    "PixelRoutine",
 #	include "PixelMain.inc"
 	},
+	{ "sampler", nullptr },
 	{ nullptr, nullptr },
 };
 
@@ -584,7 +585,7 @@ static std::unique_ptr<uint8_t[]> build_kernel_program(const char *main_file, co
 	}
 
 	std::stringstream ss_cmd, ss_out;
-	ss_cmd << build_script << " " << kernel_file << " " << main_file << " " << out_file;
+	ss_cmd << build_script << " " << kernel_file << " '" << main_file << "' " << out_file;
 
 	int ret = exec_cmd(ss_cmd.str().c_str(), ss_out);
 	if(ret < 0)
@@ -682,14 +683,18 @@ Nucleus::acquireRoutine(const char *name)
 				char out_file[128];
 
 				main_file[0] = '\0';
-				strlcat(main_file, "/tmp/", sizeof(main_file));
-				strlcat(main_file, name, sizeof(main_file));
-				strlcat(main_file, "-main-XXXXXX.c", sizeof(main_file));
 
+				if(entry->code)
 				{
-					int main_fd = mkstemps(main_file, 2);
-					write(main_fd, entry->code, strlen(entry->code));
-					close(main_fd);
+					strlcat(main_file, "/tmp/", sizeof(main_file));
+					strlcat(main_file, name, sizeof(main_file));
+					strlcat(main_file, "-main-XXXXXX.c", sizeof(main_file));
+
+					{
+						int main_fd = mkstemps(main_file, 2);
+						write(main_fd, entry->code, strlen(entry->code));
+						close(main_fd);
+					}
 				}
 
 				kernel_file[0] = '\0';
@@ -2229,7 +2234,8 @@ RValue<Short4> MulHigh(RValue<Short4> x, RValue<Short4> y)
 RValue<Int2> MulAdd(RValue<Short4> x, RValue<Short4> y)
 {
 	RR_DEBUG_INFO_UPDATE_LOC();
-#if defined(__i386__) || defined(__x86_64__)
+	// #if defined(__i386__) || defined(__x86_64__)
+#if 0
 	return x86::pmaddwd(x, y);
 #else
 	return As<Int2>(V(lowerMulAdd(V(x.value()), V(y.value()))));
@@ -2322,7 +2328,8 @@ RValue<UShort4> operator<<(RValue<UShort4> lhs, unsigned char rhs)
 RValue<UShort4> operator>>(RValue<UShort4> lhs, unsigned char rhs)
 {
 	RR_DEBUG_INFO_UPDATE_LOC();
-#if defined(__i386__) || defined(__x86_64__)
+	// #if defined(__i386__) || defined(__x86_64__)
+#if 0
 	//	return RValue<Short4>(Nucleus::createLShr(lhs.value(), rhs.value()));
 
 	return x86::psrlw(lhs, rhs);
@@ -2366,7 +2373,8 @@ RValue<UShort4> SubSat(RValue<UShort4> x, RValue<UShort4> y)
 RValue<UShort4> MulHigh(RValue<UShort4> x, RValue<UShort4> y)
 {
 	RR_DEBUG_INFO_UPDATE_LOC();
-#if defined(__i386__) || defined(__x86_64__)
+	// #if defined(__i386__) || defined(__x86_64__)
+#if 0
 	return x86::pmulhuw(x, y);
 #else
 	return As<UShort4>(V(lowerMulHigh(V(x.value()), V(y.value()), false)));
@@ -2733,7 +2741,8 @@ RValue<Int4> operator<<(RValue<Int4> lhs, unsigned char rhs)
 RValue<Int4> operator>>(RValue<Int4> lhs, unsigned char rhs)
 {
 	RR_DEBUG_INFO_UPDATE_LOC();
-#if defined(__i386__) || defined(__x86_64__)
+	// #if defined(__i386__) || defined(__x86_64__)
+#if 0
 	return x86::psrad(lhs, rhs);
 #else
 	return As<Int4>(V(lowerVectorAShr(V(lhs.value()), rhs)));
@@ -3354,7 +3363,7 @@ RValue<Int4> CmpUNLE(RValue<Float4> x, RValue<Float4> y)
 RValue<Float4> Round(RValue<Float4> x)
 {
 	RR_DEBUG_INFO_UPDATE_LOC();
-#if(defined(__i386__) || defined(__x86_64__)) && !__has_feature(memory_sanitizer)
+#if (defined(__i386__) || defined(__x86_64__)) && !__has_feature(memory_sanitizer)
 	if(CPUID::supportsSSE4_1())
 	{
 		return x86::roundps(x, 0);
@@ -3371,7 +3380,7 @@ RValue<Float4> Round(RValue<Float4> x)
 RValue<Float4> Trunc(RValue<Float4> x)
 {
 	RR_DEBUG_INFO_UPDATE_LOC();
-#if(defined(__i386__) || defined(__x86_64__)) && !__has_feature(memory_sanitizer)
+#if (defined(__i386__) || defined(__x86_64__)) && !__has_feature(memory_sanitizer)
 	if(CPUID::supportsSSE4_1())
 	{
 		return x86::roundps(x, 3);
@@ -3390,7 +3399,7 @@ RValue<Float4> Frac(RValue<Float4> x)
 	RR_DEBUG_INFO_UPDATE_LOC();
 	Float4 frc;
 
-#if(defined(__i386__) || defined(__x86_64__)) && !__has_feature(memory_sanitizer)
+#if (defined(__i386__) || defined(__x86_64__)) && !__has_feature(memory_sanitizer)
 	if(CPUID::supportsSSE4_1())
 	{
 		frc = x - x86::floorps(x);
@@ -3413,7 +3422,7 @@ RValue<Float4> Frac(RValue<Float4> x)
 RValue<Float4> Floor(RValue<Float4> x)
 {
 	RR_DEBUG_INFO_UPDATE_LOC();
-#if(defined(__i386__) || defined(__x86_64__)) && !__has_feature(memory_sanitizer)
+#if (defined(__i386__) || defined(__x86_64__)) && !__has_feature(memory_sanitizer)
 	if(CPUID::supportsSSE4_1())
 	{
 		return x86::floorps(x);
@@ -3430,7 +3439,7 @@ RValue<Float4> Floor(RValue<Float4> x)
 RValue<Float4> Ceil(RValue<Float4> x)
 {
 	RR_DEBUG_INFO_UPDATE_LOC();
-#if(defined(__i386__) || defined(__x86_64__)) && !__has_feature(memory_sanitizer)
+#if (defined(__i386__) || defined(__x86_64__)) && !__has_feature(memory_sanitizer)
 	if(CPUID::supportsSSE4_1())
 	{
 		return x86::ceilps(x);

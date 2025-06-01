@@ -94,6 +94,7 @@ public:
 	size_t rowPitchBytes(VkImageAspectFlagBits aspect, uint32_t mipLevel) const;
 	size_t slicePitchBytes(VkImageAspectFlagBits aspect, uint32_t mipLevel) const;
 	void *getTexelPointer(const VkOffset3D &offset, const VkImageSubresource &subresource) const;
+	void *getDeviceTexelPointer(const VkOffset3D &offset, const VkImageSubresource &subresource) const;
 	bool isCubeCompatible() const;
 	bool is3DSlice() const;
 	uint8_t *end() const;

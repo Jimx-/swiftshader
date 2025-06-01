@@ -659,6 +659,10 @@ void Image::copy(const void *srcCopyMemory,
 			{
 				ASSERT(((memoryIsSource ? dstSliceMemory : srcSliceMemory) + copySize) < end());
 				memcpy(dstSliceMemory, srcSliceMemory, copySize);
+				if(bufferIsSource && deviceMemory)
+				{
+					deviceMemory->flush(dstSliceMemory - imageMemory, copySize);
+				}
 				srcSliceMemory += srcRowPitchBytes;
 				dstSliceMemory += dstRowPitchBytes;
 			}
@@ -700,6 +704,14 @@ void *Image::getTexelPointer(const VkOffset3D &offset, const VkImageSubresource 
 {
 	VkImageAspectFlagBits aspect = static_cast<VkImageAspectFlagBits>(subresource.aspectMask);
 	return deviceMemory->getOffsetPointer(getMemoryOffset(aspect) +
+	                                      texelOffsetBytesInStorage(offset, subresource) +
+	                                      getSubresourceOffset(aspect, subresource.mipLevel, subresource.arrayLayer));
+}
+
+void *Image::getDeviceTexelPointer(const VkOffset3D &offset, const VkImageSubresource &subresource) const
+{
+	VkImageAspectFlagBits aspect = static_cast<VkImageAspectFlagBits>(subresource.aspectMask);
+	return deviceMemory->getDevicePointer(getMemoryOffset(aspect) +
 	                                      texelOffsetBytesInStorage(offset, subresource) +
 	                                      getSubresourceOffset(aspect, subresource.mipLevel, subresource.arrayLayer));
 }

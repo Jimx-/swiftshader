@@ -30,6 +30,10 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#if USE_GROOM
+#	include <groom.h>
+#endif
+
 namespace marl {
 class Scheduler;
 }
@@ -73,11 +77,24 @@ public:
 	void getPrivateData(VkObjectType objectType, uint64_t objectHandle, const PrivateData *privateDataSlot, uint64_t *data);
 	void removePrivateDataSlot(const PrivateData *privateDataSlot);
 
+	struct SamplerSnapshotEntry
+	{
+		uint32_t instruction;
+		uint32_t sampler;
+		uint32_t imageView;
+		const void *routinePtr;
+	};
+
 	class SamplingRoutineCache
 	{
 	public:
-		SamplingRoutineCache()
-		    : cache(1024)
+		SamplingRoutineCache(const Device *device)
+		    : device(device)
+		    , cache(1024)
+		    , samplerSnapshot(nullptr)
+#if USE_GROOM
+		    , samplerSnapshotDev(INVALID_DEVICE_BUFFER)
+#endif
 		{}
 		~SamplingRoutineCache() {}
 
@@ -105,7 +122,7 @@ public:
 		std::shared_ptr<rr::Routine> getOrCreate(const Key &key, Function &&createRoutine)
 		{
 			auto it = snapshot.find(key);
-			if(it != snapshot.end()) { return it->second; }
+			if(it != snapshot.end()) { return it->second.routine; }
 
 			marl::lock lock(mutex);
 			if(auto existingRoutine = cache.lookup(key))
@@ -122,12 +139,45 @@ public:
 
 		void updateSnapshot();
 
+		const void *getSamplerSnapshot() const { return samplerSnapshot; }
+		size_t getSamplerCount() const { return snapshot.size(); }
+
 	private:
+		struct SnapshotItem
+		{
+			std::shared_ptr<rr::Routine> routine;
+#if USE_GROOM
+			groom_dev_buffer_t devBuf;
+#endif
+
+			explicit SnapshotItem(const std::shared_ptr<rr::Routine> &routine
+#if USE_GROOM
+			                      ,
+			                      groom_dev_buffer_t devBuf
+#endif
+			                      )
+			    : routine(routine)
+#if USE_GROOM
+			    , devBuf(devBuf)
+#endif
+			{
+			}
+		};
+
+		const Device *device;
+
 		bool snapshotNeedsUpdate = false;
-		std::unordered_map<Key, std::shared_ptr<rr::Routine>, Key::Hash> snapshot;
+		std::unordered_map<Key, SnapshotItem, Key::Hash> snapshot;
 
 		marl::mutex mutex;
 		sw::LRUCache<Key, std::shared_ptr<rr::Routine>, Key::Hash> cache GUARDED_BY(mutex);
+
+		const void *samplerSnapshot;
+#if USE_GROOM
+		groom_dev_buffer_t samplerSnapshotDev;
+#endif
+
+		void clearSnapshot();
 	};
 
 	SamplingRoutineCache *getSamplingRoutineCache() const;

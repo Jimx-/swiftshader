@@ -17,6 +17,7 @@
 #include "System/Types.hpp"
 
 #include "Vulkan/VkDescriptorSetLayout.hpp"
+#include "Vulkan/VkDevice.hpp"
 #include "Vulkan/VkPipelineLayout.hpp"
 
 #include <spirv/unified1/spirv.hpp>
@@ -405,7 +406,27 @@ Pointer<Byte> SpirvEmitter::lookupSamplerFunction(Pointer<Byte> imageDescriptor,
 	If(!cacheHit)
 	{
 		rr::Int imageViewId = *Pointer<rr::Int>(imageDescriptor + OFFSET(vk::ImageDescriptor, imageViewId));
-		cache.function = Call(getImageSampler, routine->device, instruction.signature, samplerId, imageViewId);
+
+		UInt i = 0;
+		Do
+		{
+			Pointer<Byte> snapshotEntry = routine->samplerSnapshot + i * sizeof(vk::Device::SamplerSnapshotEntry);
+			Int snapshotInstruction = *Pointer<UInt>(snapshotEntry + OFFSET(vk::Device::SamplerSnapshotEntry, instruction));
+			Int snapshotImageView = *Pointer<UInt>(snapshotEntry + OFFSET(vk::Device::SamplerSnapshotEntry, imageView));
+			Int snapshotSampler = *Pointer<UInt>(snapshotEntry + OFFSET(vk::Device::SamplerSnapshotEntry, sampler));
+
+			If(snapshotInstruction == instruction.signature && snapshotImageView == imageViewId && snapshotSampler == samplerId)
+			{
+				cache.function = *Pointer<Pointer<Byte>>(snapshotEntry + OFFSET(vk::Device::SamplerSnapshotEntry, routinePtr));
+				i = routine->samplerCount;
+			}
+			Else
+			{
+				i++;
+			}
+		}
+		Until(i >= routine->samplerCount);
+
 		cache.imageDescriptor = imageDescriptor;
 		cache.samplerId = samplerId;
 	}

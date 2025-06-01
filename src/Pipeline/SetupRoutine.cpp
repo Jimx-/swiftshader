@@ -330,7 +330,7 @@ void SetupRoutine::generate()
 			edge2[0] = edge2[0] * subPixF / WxF;
 			edge2[1] = edge2[1] * subPixF / HxF;
 
-			float factor = (float)(1UL << 28);
+			float factor = (float)(1UL << 30);
 			*Pointer<Int>(primitive + OFFSET(Primitive, edge[0].A)) = RoundInt(edge0[0] * factor);
 			*Pointer<Int>(primitive + OFFSET(Primitive, edge[0].B)) = RoundInt(edge0[1] * factor);
 			*Pointer<Int>(primitive + OFFSET(Primitive, edge[0].C)) = RoundInt(edge0[2] * factor);

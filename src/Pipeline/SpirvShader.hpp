@@ -1033,6 +1033,8 @@ private:
 // The SpirvEmitter class translates the parsed SPIR-V shader into Reactor code.
 class SpirvEmitter
 {
+	friend class vk::DescriptorSetLayout;
+
 	using Type = Spirv::Type;
 	using Object = Spirv::Object;
 	using Block = Spirv::Block;
@@ -1556,8 +1558,8 @@ private:
 
 	using ImageSampler = void(void *texture, void *uvsIn, void *texelOut, void *constants);
 	static ImageSampler *getImageSampler(const vk::Device *device, uint32_t signature, uint32_t samplerId, uint32_t imageViewId);
-	static std::shared_ptr<rr::Routine> emitSamplerRoutine(ImageInstructionSignature instruction, const Sampler &samplerState);
-	static std::shared_ptr<rr::Routine> emitWriteRoutine(ImageInstructionSignature instruction, const Sampler &samplerState);
+	static std::shared_ptr<rr::Routine> emitSamplerRoutine(ImageInstructionSignature instruction, const Sampler &samplerState, uint32_t samplerId);
+	static std::shared_ptr<rr::Routine> emitWriteRoutine(ImageInstructionSignature instruction, const Sampler &samplerState, uint32_t samplerId);
 
 	// TODO(b/129523279): Eliminate conversion and use vk::Sampler members directly.
 	static sw::FilterType convertFilterMode(const vk::SamplerState *samplerState, VkImageViewType imageViewType, SamplerMethod samplerMethod);
@@ -1636,6 +1638,8 @@ public:
 	Pointer<Int> descriptorDynamicOffsets;
 	Pointer<Byte> pushConstants;
 	Pointer<Byte> constants;
+	Pointer<Byte> samplerSnapshot;
+	UInt samplerCount;
 	Int discardMask = 0;
 
 	// Shader invocation state.

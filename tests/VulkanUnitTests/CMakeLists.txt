@@ -121,3 +121,50 @@ target_link_libraries(vk-triangle
         VulkanWrapper
         ${ROOT_PROJECT_LINK_LIBRARIES}
 )
+
+
+set(VULKAN_MESH_SRC_FILES
+    DrawMesh.cpp
+)
+
+add_executable(vk-mesh
+    ${VULKAN_MESH_SRC_FILES}
+)
+
+add_dependencies(vk-mesh
+    vk_swiftshader
+)
+
+set_target_properties(vk-mesh PROPERTIES
+    FOLDER "Tests"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+)
+
+target_include_directories(vk-mesh
+    PRIVATE
+        "${SWIFTSHADER_DIR}/include"
+)
+
+target_compile_definitions(vk-mesh
+    PRIVATE
+        "STANDALONE"
+)
+
+target_compile_options(vk-mesh
+    PRIVATE
+        ${ROOT_PROJECT_COMPILE_OPTIONS}
+)
+
+target_link_options(vk-mesh
+    PRIVATE
+        ${SWIFTSHADER_LINK_FLAGS}
+)
+
+target_link_libraries(vk-mesh
+    PRIVATE
+        gtest
+        gmock
+        SPIRV-Tools
+        VulkanWrapper
+        ${ROOT_PROJECT_LINK_LIBRARIES}
+)

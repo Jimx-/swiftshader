@@ -25,6 +25,7 @@
 #include "Debug/Server.hpp"
 #include "Device/Blitter.hpp"
 #include "System/Debug.hpp"
+#include "Vulkan/VkPhysicalDevice.hpp"
 
 #include <chrono>
 #include <climits>
@@ -51,18 +52,95 @@ const time_point getEndTimePoint(uint64_t timeout, bool &infiniteTimeout)
 
 namespace vk {
 
+void Device::SamplingRoutineCache::clearSnapshot()
+{
+#if USE_GROOM
+	groom_device_t gpuDevice = device->getPhysicalDevice()->getGpuDevice();
+
+	for(const auto &[key, routine] : snapshot)
+	{
+		groom_mem_free(gpuDevice, routine.devBuf);
+	}
+
+	if(samplerSnapshotDev != INVALID_DEVICE_BUFFER)
+	{
+		groom_mem_free(gpuDevice, samplerSnapshotDev);
+		samplerSnapshotDev = INVALID_DEVICE_BUFFER;
+	}
+#else
+	delete[](Device::SamplerSnapshotEntry *)samplerSnapshot;
+#endif
+
+	samplerSnapshot = nullptr;
+	snapshot.clear();
+}
+
 void Device::SamplingRoutineCache::updateSnapshot()
 {
 	marl::lock lock(mutex);
 
 	if(snapshotNeedsUpdate)
 	{
-		snapshot.clear();
+#if USE_GROOM
+		groom_device_t gpuDevice = device->getPhysicalDevice()->getGpuDevice();
+#endif
+
+		clearSnapshot();
 
 		for(auto it : cache)
 		{
-			snapshot[it.key()] = it.data();
+			auto routine = it.data();
+
+#if USE_GROOM
+			size_t codeSize;
+			auto *codeBuf = routine->getCode(codeSize);
+			groom_dev_buffer_t devBuf = groom_mem_alloc(gpuDevice, codeSize);
+
+			auto hostBuf = groom_buf_alloc(gpuDevice, codeSize);
+			void *hostBufMapped = groom_map_buffer(hostBuf);
+
+			memcpy(hostBufMapped, codeBuf, codeSize);
+			groom_copy_buffer_to_device(devBuf, hostBuf, codeSize, 0);
+			groom_buf_free(hostBuf);
+
+			SnapshotItem data{ routine, devBuf };
+			snapshot.emplace(it.key(), std::move(data));
+#else
+			snapshot.emplace(it.key(), routine);
+#endif
 		}
+
+		Device::SamplerSnapshotEntry *cacheArray = new Device::SamplerSnapshotEntry[snapshot.size()];
+		size_t i = 0;
+		for(const auto &[key, routine] : snapshot)
+		{
+			cacheArray[i].instruction = key.instruction;
+			cacheArray[i].sampler = key.sampler;
+			cacheArray[i].imageView = key.imageView;
+#if USE_GROOM
+			cacheArray[i].routinePtr = (void *)groom_dev_buf_addr(routine.devBuf);
+#else
+			cacheArray[i].routinePtr = routine.routine->getEntry();
+#endif
+			i++;
+		}
+
+#if USE_GROOM
+		size_t allocSize = sizeof(Device::SamplerSnapshotEntry) * snapshot.size();
+		samplerSnapshotDev = groom_mem_alloc(gpuDevice, allocSize);
+
+		auto hostBuf = groom_buf_alloc(gpuDevice, allocSize);
+		void *hostBufMapped = groom_map_buffer(hostBuf);
+
+		memcpy(hostBufMapped, cacheArray, allocSize);
+		groom_copy_buffer_to_device(samplerSnapshotDev, hostBuf, allocSize, 0);
+		groom_buf_free(hostBuf);
+
+		samplerSnapshot = (void *)groom_dev_buf_addr(samplerSnapshotDev);
+		delete[] cacheArray;
+#else
+		samplerSnapshot = cacheArray;
+#endif
 
 		snapshotNeedsUpdate = false;
 	}
@@ -154,7 +232,7 @@ Device::Device(const VkDeviceCreateInfo *pCreateInfo, void *mem, PhysicalDevice 
 
 	// TODO(b/119409619): use an allocator here so we can control all memory allocations
 	blitter.reset(new sw::Blitter());
-	samplingRoutineCache.reset(new SamplingRoutineCache());
+	samplingRoutineCache.reset(new SamplingRoutineCache(this));
 	samplerIndexer.reset(new SamplerIndexer());
 
 #ifdef SWIFTSHADER_DEVICE_MEMORY_REPORT

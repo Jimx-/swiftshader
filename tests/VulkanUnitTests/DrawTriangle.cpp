@@ -1,8 +1,18 @@
+#include "Buffer.hpp"
 #include "DrawTester.hpp"
+
+#include <glm/ext/matrix_clip_space.hpp>
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/ext/scalar_constants.hpp>
+#include <glm/mat4x4.hpp>
+#include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
 
 #include <xcb/xcb.h>
 
 #include <cmath>
+
+#include <fstream>
 
 int main()
 {
@@ -12,18 +22,18 @@ int main()
 		struct Vertex
 		{
 			float position[3];
-			float color[3];
+			float texCoord[2];
 		};
 
 		Vertex vertexBufferData[] = {
-			{ { -0.5f, -0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f } },
-			{ { 0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f } },
-			{ { 0.0f, 0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f } }
+			{ { 1.0f, 1.0f, 0.5f }, { 1.0f, 0.0f } },
+			{ { -1.0f, 1.0f, 0.5f }, { 0.0f, 1.0f } },
+			{ { 0.0f, -1.0f, 0.5f }, { 0.0f, 0.0f } }
 		};
 
 		std::vector<vk::VertexInputAttributeDescription> inputAttributes;
 		inputAttributes.push_back(vk::VertexInputAttributeDescription(0, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, position)));
-		inputAttributes.push_back(vk::VertexInputAttributeDescription(1, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, color)));
+		inputAttributes.push_back(vk::VertexInputAttributeDescription(1, 0, vk::Format::eR32G32Sfloat, offsetof(Vertex, texCoord)));
 
 		tester.addVertexBuffer(vertexBufferData, sizeof(vertexBufferData), std::move(inputAttributes));
 	});
@@ -31,16 +41,13 @@ int main()
 	tester.onCreateVertexShader([](DrawTester &tester) {
 		const char *vertexShader = R"(#version 310 es
 			layout(location = 0) in vec3 inPos;
-			layout(location = 1) in vec3 inColor;
-
-			layout(location = 0) out vec3 outColor;
-
-			layout(binding = 0) uniform UniformBufferObject { mat4 model; } ubo;
+			layout(location = 1) in vec2 inTexCoord;
+			layout(location = 0) out vec2 outTexCoord;
 
 			void main()
 			{
-				outColor = inColor;
-				gl_Position = ubo.model * vec4(inPos.xyz, 1.0);
+				gl_Position = vec4(inPos.xyz, 1.0);
+				outTexCoord = inTexCoord;
 			})";
 
 		return tester.createShaderModule(vertexShader, EShLanguage::EShLangVertex);
@@ -50,69 +57,99 @@ int main()
 		const char *fragmentShader = R"(#version 310 es
 			precision highp float;
 
-			layout(location = 0) in vec3 inColor;
-
+			layout(location = 0) in vec2 inTexCoord;
 			layout(location = 0) out vec4 outColor;
+			layout(binding = 0) uniform sampler2D texSampler;
 
 			void main()
 			{
-				outColor = vec4(inColor, 1.0);
+				outColor = texture(texSampler, inTexCoord);
 			})";
 
 		return tester.createShaderModule(fragmentShader, EShLanguage::EShLangFragment);
 	});
 
 	tester.onCreateDescriptorSetLayouts([](DrawTester &tester) -> std::vector<vk::DescriptorSetLayoutBinding> {
-		vk::DescriptorSetLayoutBinding uniformLayoutBinding;
-		uniformLayoutBinding.binding = 0;
-		uniformLayoutBinding.descriptorCount = 1;
-		uniformLayoutBinding.descriptorType = vk::DescriptorType::eUniformBuffer;
-		uniformLayoutBinding.pImmutableSamplers = nullptr;
-		uniformLayoutBinding.stageFlags = vk::ShaderStageFlagBits::eVertex;
+		vk::DescriptorSetLayoutBinding samplerLayoutBinding;
+		samplerLayoutBinding.binding = 1;
+		samplerLayoutBinding.descriptorCount = 1;
+		samplerLayoutBinding.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+		samplerLayoutBinding.pImmutableSamplers = nullptr;
+		samplerLayoutBinding.stageFlags = vk::ShaderStageFlagBits::eFragment;
 
-		tester.addUniformBuffer(sizeof(float) * 16);
-
-		return { uniformLayoutBinding };
+		return { samplerLayoutBinding };
 	});
 
 	tester.onUpdateDescriptorSet([](DrawTester &tester, vk::CommandPool &commandPool, vk::DescriptorSet &descriptorSet) {
-		static unsigned int tick = 0;
-
 		auto &device = tester.getDevice();
 		auto &physicalDevice = tester.getPhysicalDevice();
 		auto &queue = tester.getQueue();
 
-		auto &uniform = tester.getUniformBufferById(0);
+		auto &texture = tester.addImage(device, physicalDevice, 16, 16, vk::Format::eR8G8B8A8Unorm).obj;
 
-		float model[] = { 0.2f, 0.0f, 0.0f, 0.0f,
-			              0.0f, 0.2f, 0.0f, 0.0f,
-			              0.0f, 0.0f, 1.0f, 0.0f,
-			              0.0f, 0.0f, 0.0f, 1.0f };
+		// Fill texture with colorful checkerboard
+		std::array<uint32_t, 3> rgb = { 0xFFFF0000, 0xFF00FF00, 0xFF0000FF };
+		int colorIndex = 0;
+		vk::DeviceSize bufferSize = 16 * 16 * 4;
+		Buffer buffer(device, bufferSize, vk::BufferUsageFlagBits::eTransferSrc);
+		uint32_t *data = static_cast<uint32_t *>(buffer.mapMemory());
 
-		void *data = device.mapMemory(uniform.memory, 0, VK_WHOLE_SIZE);
-		memcpy(data, model, sizeof(model));
-		device.unmapMemory(uniform.memory);
+		for(int i = 0; i < 16; i++)
+		{
+			for(int j = 0; j < 16; j++)
+			{
+				if(((i ^ j) & 1) == 0)
+				{
+					data[i + 16 * j] = rgb[colorIndex++ % rgb.size()];
+				}
+				else
+				{
+					data[i + 16 * j] = 0;
+				}
+			}
+		}
 
-		vk::DescriptorBufferInfo bufferInfo;
-		bufferInfo.buffer = uniform.buffer;
-		bufferInfo.offset = 0;
-		bufferInfo.range = sizeof(model);
+		buffer.unmapMemory();
+
+		Util::transitionImageLayout(device, commandPool, queue, texture.getImage(), vk::Format::eR8G8B8A8Unorm, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
+		Util::copyBufferToImage(device, commandPool, queue, buffer.getBuffer(), texture.getImage(), 16, 16);
+		Util::transitionImageLayout(device, commandPool, queue, texture.getImage(), vk::Format::eR8G8B8A8Unorm, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
+
+		vk::SamplerCreateInfo samplerInfo;
+		samplerInfo.magFilter = vk::Filter::eLinear;
+		samplerInfo.minFilter = vk::Filter::eLinear;
+		samplerInfo.addressModeU = vk::SamplerAddressMode::eRepeat;
+		samplerInfo.addressModeV = vk::SamplerAddressMode::eRepeat;
+		samplerInfo.addressModeW = vk::SamplerAddressMode::eRepeat;
+		samplerInfo.anisotropyEnable = VK_FALSE;
+		samplerInfo.unnormalizedCoordinates = VK_FALSE;
+		samplerInfo.mipmapMode = vk::SamplerMipmapMode::eLinear;
+		samplerInfo.mipLodBias = 0.0f;
+		samplerInfo.minLod = 0.0f;
+		samplerInfo.maxLod = 0.0f;
+
+		auto sampler = tester.addSampler(samplerInfo);
+
+		vk::DescriptorImageInfo imageInfo;
+		imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+		imageInfo.imageView = texture.getImageView();
+		imageInfo.sampler = sampler.obj;
 
 		std::array<vk::WriteDescriptorSet, 1> descriptorWrites = {};
 
 		descriptorWrites[0].dstSet = descriptorSet;
-		descriptorWrites[0].dstBinding = 0;
+		descriptorWrites[0].dstBinding = 1;
 		descriptorWrites[0].dstArrayElement = 0;
-		descriptorWrites[0].descriptorType = vk::DescriptorType::eUniformBuffer;
+		descriptorWrites[0].descriptorType = vk::DescriptorType::eCombinedImageSampler;
 		descriptorWrites[0].descriptorCount = 1;
-		descriptorWrites[0].pBufferInfo = &bufferInfo;
+		descriptorWrites[0].pImageInfo = &imageInfo;
 
 		device.updateDescriptorSets(static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 	});
 
 	tester.initialize();
 
-	for(;;)
+	// for(;;)
 	{
 		tester.renderFrame();
 	}

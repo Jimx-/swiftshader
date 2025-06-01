@@ -22,6 +22,8 @@
 
 #include "Reactor/Reactor.hpp"
 
+#include "Pipeline/SpirvShader.hpp"
+
 #include <algorithm>
 #include <cstddef>
 #include <cstring>
@@ -357,6 +359,7 @@ void DescriptorSetLayout::WriteDescriptorSet(Device *device, DescriptorSet *dstS
 #if USE_GROOM
 	size_t byteOffset = memToWrite - dstSet->getDataAddress();
 	uint64_t devMemToWrite = reinterpret_cast<uint64_t>(dstSet->getDeviceAddress()) + byteOffset;
+	size_t devWriteSize = 0;
 #endif
 
 	ASSERT(reinterpret_cast<intptr_t>(memToWrite) % 16 == 0);  // Each descriptor must be 16-byte aligned.
@@ -431,6 +434,7 @@ void DescriptorSetLayout::WriteDescriptorSet(Device *device, DescriptorSet *dstS
 				if(!binding.immutableSamplers)
 				{
 					sampledImage[i].samplerId = vk::Cast(update->sampler)->id;
+					sw::SpirvEmitter::getImageSampler(device, 0x80100, sampledImage[i].samplerId, imageView->id);
 				}
 			}
 
@@ -455,11 +459,11 @@ void DescriptorSetLayout::WriteDescriptorSet(Device *device, DescriptorSet *dstS
 
 				const int level = 0;
 				VkOffset3D offset = { 0, 0, 0 };
-				texture->mipmap[0].buffer = imageView->getOffsetPointer(offset, VK_IMAGE_ASPECT_PLANE_0_BIT, level, 0, ImageView::SAMPLING);
-				texture->mipmap[1].buffer = imageView->getOffsetPointer(offset, VK_IMAGE_ASPECT_PLANE_1_BIT, level, 0, ImageView::SAMPLING);
+				texture->mipmap[0].buffer = imageView->getDeviceOffsetPointer(offset, VK_IMAGE_ASPECT_PLANE_0_BIT, level, 0, ImageView::SAMPLING);
+				texture->mipmap[1].buffer = imageView->getDeviceOffsetPointer(offset, VK_IMAGE_ASPECT_PLANE_1_BIT, level, 0, ImageView::SAMPLING);
 				if(format.getAspects() & VK_IMAGE_ASPECT_PLANE_2_BIT)
 				{
-					texture->mipmap[2].buffer = imageView->getOffsetPointer(offset, VK_IMAGE_ASPECT_PLANE_2_BIT, level, 0, ImageView::SAMPLING);
+					texture->mipmap[2].buffer = imageView->getDeviceOffsetPointer(offset, VK_IMAGE_ASPECT_PLANE_2_BIT, level, 0, ImageView::SAMPLING);
 				}
 
 				VkExtent2D extent = imageView->getMipLevelExtent(0);
@@ -493,12 +497,12 @@ void DescriptorSetLayout::WriteDescriptorSet(Device *device, DescriptorSet *dstS
 						// Obtain the pointer to the corner of the level including the border, for seamless sampling.
 						// This is taken into account in the sampling routine, which can't handle negative texel coordinates.
 						VkOffset3D offset = { -1, -1, 0 };
-						mipmap.buffer = imageView->getOffsetPointer(offset, aspect, level, 0, ImageView::SAMPLING);
+						mipmap.buffer = imageView->getDeviceOffsetPointer(offset, aspect, level, 0, ImageView::SAMPLING);
 					}
 					else
 					{
 						VkOffset3D offset = { 0, 0, 0 };
-						mipmap.buffer = imageView->getOffsetPointer(offset, aspect, level, 0, ImageView::SAMPLING);
+						mipmap.buffer = imageView->getDeviceOffsetPointer(offset, aspect, level, 0, ImageView::SAMPLING);
 					}
 
 					VkExtent2D extent = imageView->getMipLevelExtent(level);
@@ -517,6 +521,10 @@ void DescriptorSetLayout::WriteDescriptorSet(Device *device, DescriptorSet *dstS
 				}
 			}
 		}
+
+#if USE_GROOM
+		devWriteSize = sizeof(SampledImageDescriptor) * entry.descriptorCount;
+#endif
 	}
 	else if(entry.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE ||
 	        entry.descriptorType == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT)
@@ -596,20 +604,24 @@ void DescriptorSetLayout::WriteDescriptorSet(Device *device, DescriptorSet *dstS
 		}
 
 #if USE_GROOM
-		{
-			size_t writeSize = sizeof(BufferDescriptor) * entry.descriptorCount;
-			auto hostBuf = groom_buf_alloc(gpuDevice, writeSize);
-			auto *bufDesc = (BufferDescriptor *)groom_map_buffer(hostBuf);
-			memcpy(bufDesc, bufferDescriptor, writeSize);
-			groom_copy_to_device(devMemToWrite, hostBuf, writeSize, 0);
-			groom_buf_free(hostBuf);
-		}
+		devWriteSize = sizeof(BufferDescriptor) * entry.descriptorCount;
 #endif
 	}
 	else if(entry.descriptorType == VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK)
 	{
 		memcpy(memToWrite, src + entry.offset, entry.descriptorCount);
 	}
+
+#if USE_GROOM
+	if(devWriteSize > 0)
+	{
+		auto hostBuf = groom_buf_alloc(gpuDevice, devWriteSize);
+		void *hostBufMapped = groom_map_buffer(hostBuf);
+		memcpy(hostBufMapped, memToWrite, devWriteSize);
+		groom_copy_to_device(devMemToWrite, hostBuf, devWriteSize, 0);
+		groom_buf_free(hostBuf);
+	}
+#endif
 }
 
 void DescriptorSetLayout::WriteDescriptorSet(Device *device, const VkWriteDescriptorSet &writeDescriptorSet)

@@ -342,7 +342,7 @@ void DrawTester::createCommandBuffers(vk::RenderPass renderPass)
 		poolSizes[0].type = vk::DescriptorType::eCombinedImageSampler;
 		poolSizes[0].descriptorCount = 1;
 		poolSizes[1].type = vk::DescriptorType::eUniformBuffer;
-		poolSizes[1].descriptorCount = 1;
+		poolSizes[1].descriptorCount = 2;
 
 		vk::DescriptorPoolCreateInfo poolInfo;
 		poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
