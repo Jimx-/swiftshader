@@ -605,7 +605,7 @@ if(SWIFTSHADER_WARNINGS_AS_ERRORS)
     if(MSVC)
         set(WARNINGS_AS_ERRORS "/WX")  # Treat all warnings as errors
     else()
-        set(WARNINGS_AS_ERRORS "-Werror")  # Treat all warnings as errors
+        set(WARNINGS_AS_ERRORS "-Werror" "-Wno-cpp")  # Treat all warnings as errors
     endif()
 endif()
 

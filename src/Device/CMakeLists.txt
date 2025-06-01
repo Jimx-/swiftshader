@@ -107,7 +107,9 @@ target_include_directories(vk_device
 
 target_link_directories(vk_device
     PUBLIC
-        "${GROOM_ROOT}/build/driver/rtlsim")
+        "${GROOM_ROOT}/build/driver/rtlsim"
+        "${GROOM_ROOT}/build/driver/xdma"
+        "${GROOM_ROOT}/build/driver/roce")
 endif()
 
 target_compile_options(vk_device
