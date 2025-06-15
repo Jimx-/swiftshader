@@ -645,8 +645,7 @@ void Image::copy(const void *srcCopyMemory,
 	VkDeviceSize srcLayerSize = memoryIsSource ? memorySlicePitchBytes : imageLayerSize;
 	VkDeviceSize dstLayerSize = memoryIsSource ? imageLayerSize : memorySlicePitchBytes;
 
-	const uint32_t layerCount = imageSubresource.layerCount == VK_REMAINING_ARRAY_LAYERS ?
-		arrayLayers - imageSubresource.baseArrayLayer : imageSubresource.layerCount;
+	const uint32_t layerCount = imageSubresource.layerCount == VK_REMAINING_ARRAY_LAYERS ? arrayLayers - imageSubresource.baseArrayLayer : imageSubresource.layerCount;
 	for(uint32_t i = 0; i < layerCount; i++)
 	{
 		const uint8_t *srcLayerMemory = srcMemory;
@@ -659,7 +658,7 @@ void Image::copy(const void *srcCopyMemory,
 			{
 				ASSERT(((memoryIsSource ? dstSliceMemory : srcSliceMemory) + copySize) < end());
 				memcpy(dstSliceMemory, srcSliceMemory, copySize);
-				if(bufferIsSource && deviceMemory)
+				if(memoryIsSource && deviceMemory)
 				{
 					deviceMemory->flush(dstSliceMemory - imageMemory, copySize);
 				}

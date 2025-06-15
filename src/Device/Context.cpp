@@ -399,7 +399,7 @@ void Inputs::bindVertexInputs(int firstInstance)
 			const auto &vertexInput = vertexInputBindings[attrib.binding];
 			VkDeviceSize offset = attrib.offset + vertexInput.offset +
 			                      getInstanceStride(i) * firstInstance;
-			attrib.buffer = vertexInput.buffer ? vertexInput.buffer->getOffsetPointer(offset) : nullptr;
+			attrib.buffer = vertexInput.buffer ? vertexInput.buffer->getDevicePointer(offset) : nullptr;
 
 			VkDeviceSize size = vertexInput.buffer ? vertexInput.buffer->getSize() : 0;
 			attrib.robustnessSize = (size > offset) ? size - offset : 0;
