@@ -73,6 +73,10 @@ target_compile_definitions(VulkanWrapper
         "STANDALONE"
 )
 
+if(SWIFTSHADER_USE_GROOM)
+    target_compile_definitions(VulkanWrapper PUBLIC "USE_HEADLESS_SURFACE=1")
+endif()
+
 target_compile_options(VulkanWrapper
     PRIVATE
         ${ROOT_PROJECT_COMPILE_OPTIONS}

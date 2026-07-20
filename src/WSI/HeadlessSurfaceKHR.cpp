@@ -14,6 +14,8 @@
 
 #include "HeadlessSurfaceKHR.hpp"
 
+#include "Vulkan/VkDeviceMemory.hpp"
+
 namespace vk {
 
 HeadlessSurfaceKHR::HeadlessSurfaceKHR(const VkHeadlessSurfaceCreateInfoEXT *pCreateInfo, void *mem)
@@ -31,9 +33,15 @@ void HeadlessSurfaceKHR::destroySurface(const VkAllocationCallbacks *pAllocator)
 
 VkResult HeadlessSurfaceKHR::getSurfaceCapabilities(const void *pSurfaceInfoPNext, VkSurfaceCapabilitiesKHR *pSurfaceCapabilities, void *pSurfaceCapabilitiesPNext) const
 {
+#if USE_GROOM
+	pSurfaceCapabilities->currentExtent = { 640, 480 };
+	pSurfaceCapabilities->minImageExtent = { 640, 480 };
+	pSurfaceCapabilities->maxImageExtent = { 640, 480 };
+#else
 	pSurfaceCapabilities->currentExtent = { 1280, 720 };
 	pSurfaceCapabilities->minImageExtent = { 0, 0 };
 	pSurfaceCapabilities->maxImageExtent = { 3840, 2160 };
+#endif
 
 	SetCommonSurfaceCapabilities(pSurfaceInfoPNext, pSurfaceCapabilities, pSurfaceCapabilitiesPNext);
 	return VK_SUCCESS;
@@ -49,6 +57,14 @@ void HeadlessSurfaceKHR::detachImage(PresentImage *image)
 
 VkResult HeadlessSurfaceKHR::present(PresentImage *image)
 {
+#if USE_GROOM
+	VkResult flushResult = image->getImageMemory()->flushFramebuffer();
+	if(flushResult != VK_NOT_READY)
+	{
+		return flushResult;
+	}
+#endif
+
 	return VK_SUCCESS;
 }
 

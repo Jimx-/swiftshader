@@ -82,6 +82,7 @@ public:
 	VkResult map(VkDeviceSize offset, VkDeviceSize size, void **ppData);
 	virtual void unmap() {}
 	virtual VkResult flush(VkDeviceSize offset, VkDeviceSize size) { return VK_SUCCESS; }
+	virtual VkResult flushFramebuffer() { return VK_NOT_READY; }
 	VkDeviceSize getCommittedMemoryInBytes() const;
 	void *getOffsetPointer(VkDeviceSize pOffset) const;
 	virtual void *getDevicePointer(VkDeviceSize pOffset) const { return getOffsetPointer(pOffset); }

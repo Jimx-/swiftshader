@@ -11,6 +11,8 @@ GroomDeviceMemory::GroomDeviceMemory(const VkMemoryAllocateInfo *pCreateInfo, vo
     , dev_buffer(INVALID_DEVICE_BUFFER)
     , host_buffer(INVALID_BUFFER)
 {
+	uint64_t framebuffer = 0;
+	hasFramebuffer = groom_device_get_feature(gpuDevice, GROOM_FEATURE_FRAMEBUFFER, &framebuffer) == 0 && framebuffer != 0;
 }
 
 GroomDeviceMemory::~GroomDeviceMemory()
@@ -67,6 +69,16 @@ VkResult GroomDeviceMemory::flush(VkDeviceSize offset, VkDeviceSize size)
 	groom_copy_to_device(groom_dev_buf_addr(dev_buffer) + offset, host_buffer, size, offset);
 
 	return VK_SUCCESS;
+}
+
+VkResult GroomDeviceMemory::flushFramebuffer()
+{
+	if(!hasFramebuffer)
+	{
+		return VK_NOT_READY;
+	}
+
+	return groom_flush_framebuffer(gpuDevice) == 0 ? VK_SUCCESS : VK_ERROR_DEVICE_LOST;
 }
 
 void GroomDeviceMemory::unmap()
