@@ -78,6 +78,11 @@ public:
 	{
 		return routine->getCode(size);
 	}
+
+	const std::shared_ptr<Routine> &getRoutine() const
+	{
+		return routine;
+	}
 #endif
 
 private:

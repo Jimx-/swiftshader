@@ -34,6 +34,7 @@
 #endif
 
 #include <atomic>
+#include <map>
 
 namespace vk {
 
@@ -213,6 +214,12 @@ struct DrawCall
 	groom_dev_buffer_t primitiveOutDevBuf;
 	groom_dev_buffer_t primMaskOutDevBuf;
 	groom_dev_buffer_t tileOutDevBuf;
+
+	uint32_t vertexEntry;
+	uint32_t setupEntry;
+	uint32_t prebinningEntry;
+	uint32_t binningEntry;
+	uint32_t pixelEntry;
 #endif
 
 	static void processPrimitiveVertices(
@@ -287,6 +294,9 @@ private:
 	groom_device_t gpuDevice;
 	groom_dev_buffer_t deviceDevBuf;
 	groom_dev_buffer_t drawDevBuf;
+	std::map<std::weak_ptr<rr::Routine>, groom_dev_buffer_t, std::owner_less<void>> kernels;
+
+	uint32_t getKernelEntry(const std::shared_ptr<rr::Routine> &routine);
 #endif
 };
 

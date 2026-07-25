@@ -287,10 +287,46 @@ Renderer::~Renderer()
 	drawTickets.take().wait();
 
 #if USE_GROOM
+	for(const auto &kernel : kernels)
+	{
+		groom_mem_free(gpuDevice, kernel.second);
+	}
 	groom_mem_free(gpuDevice, deviceDevBuf);
 	groom_mem_free(gpuDevice, drawDevBuf);
 #endif
 }
+
+#if USE_GROOM
+uint32_t Renderer::getKernelEntry(const std::shared_ptr<rr::Routine> &routine)
+{
+	for(auto kernel = kernels.begin(); kernel != kernels.end();)
+	{
+		if(kernel->first.expired())
+		{
+			groom_mem_free(gpuDevice, kernel->second);
+			kernel = kernels.erase(kernel);
+		}
+		else
+		{
+			++kernel;
+		}
+	}
+
+	auto kernel = kernels.find(routine);
+	if(kernel == kernels.end())
+	{
+		size_t codeSize = 0;
+		const uint8_t *code = routine->getCode(codeSize);
+		auto deviceBuffer = groom_mem_alloc(gpuDevice, codeSize);
+		uploadToDevice(gpuDevice, deviceBuffer, code, codeSize);
+		kernel = kernels.emplace(routine, deviceBuffer).first;
+	}
+
+	uint64_t entry = groom_dev_buf_addr(kernel->second);
+	ASSERT(entry <= UINT32_MAX);
+	return static_cast<uint32_t>(entry);
+}
+#endif
 
 // Renderer objects have to be mem aligned to the alignment provided in the class declaration
 void *Renderer::operator new(size_t size)
@@ -637,6 +673,14 @@ void Renderer::draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState
 	draw->primitiveOutDevBuf = INVALID_DEVICE_BUFFER;
 	draw->primMaskOutDevBuf = INVALID_DEVICE_BUFFER;
 	draw->tileOutDevBuf = INVALID_DEVICE_BUFFER;
+	draw->vertexEntry = getKernelEntry(draw->vertexRoutine.getRoutine());
+	draw->prebinningEntry = getKernelEntry(draw->prebinningRoutine.getRoutine());
+	draw->binningEntry = getKernelEntry(draw->binningRoutine.getRoutine());
+	if(!hasRasterizerDiscard)
+	{
+		draw->setupEntry = getKernelEntry(draw->setupRoutine.getRoutine());
+		draw->pixelEntry = getKernelEntry(draw->pixelRoutine.getRoutine());
+	}
 
 	uploadToDevice(gpuDevice, drawDevBuf, data, sizeof(DrawData));
 #endif
@@ -824,10 +868,6 @@ void DrawCall::processVertices(vk::Device *device, DrawCall *draw, BatchData *ba
 	vtask_dev = groom_mem_alloc(draw->gpuDevice, sizeof(VertexTask));
 	uploadToDevice(draw->gpuDevice, vtask_dev, &vertexTask, sizeof(VertexTask));
 
-	size_t code_size;
-	auto *code_buf = draw->vertexRoutine.getCode(code_size);
-	groom_upload_kernel(draw->gpuDevice, code_buf, code_size);
-
 	if(draw->vertexOutDevBuf != INVALID_DEVICE_BUFFER)
 		groom_mem_free(draw->gpuDevice, draw->vertexOutDevBuf);
 	draw->vertexOutDevBuf = groom_mem_alloc(draw->gpuDevice, sizeof(Vertex) * vertexTask.vertexCount);
@@ -852,7 +892,7 @@ void DrawCall::processVertices(vk::Device *device, DrawCall *draw, BatchData *ba
 		groom_buf_free(varg_host);
 	}
 
-	groom_start(draw->gpuDevice, varg_dev, 0);
+	groom_start(draw->gpuDevice, varg_dev, draw->vertexEntry, 0);
 
 	{
 		auto vertex_host = groom_buf_alloc(draw->gpuDevice, sizeof(Vertex) * 3);
@@ -917,10 +957,6 @@ void DrawCall::processBinning(vk::Device *device, DrawCall *draw, BatchData *bat
 	    groom_buf_alloc(draw->gpuDevice, sizeof(unsigned int) * draw->data->numTiles);
 	unsigned int *primCount = (unsigned int *)groom_map_buffer(primCountHost);
 
-	size_t code_size;
-	auto *code_buf = draw->prebinningRoutine.getCode(code_size);
-	groom_upload_kernel(draw->gpuDevice, code_buf, code_size);
-
 	groom_dev_buffer_t parg_dev;
 	{
 		auto parg_host =
@@ -942,7 +978,7 @@ void DrawCall::processBinning(vk::Device *device, DrawCall *draw, BatchData *bat
 		groom_buf_free(parg_host);
 	}
 
-	groom_start(draw->gpuDevice, parg_dev, 0);
+	groom_start(draw->gpuDevice, parg_dev, draw->prebinningEntry, 0);
 
 	groom_copy_buffer_from_device(primCountHost, primCountDev,
 	                              sizeof(unsigned int) * draw->data->numTiles, 0);
@@ -978,9 +1014,6 @@ void DrawCall::processBinning(vk::Device *device, DrawCall *draw, BatchData *bat
 	draw->tileOutDevBuf = groom_mem_alloc(draw->gpuDevice, sizeof(Tile) * draw->data->numTiles + sizeof(unsigned int) * numPrimitives);
 	groom_copy_buffer_to_device(primCountDev, primCountHost, sizeof(unsigned int) * draw->data->numTiles, 0);
 
-	code_buf = draw->binningRoutine.getCode(code_size);
-	groom_upload_kernel(draw->gpuDevice, code_buf, code_size);
-
 	groom_dev_buffer_t barg_dev;
 	{
 		auto barg_host = groom_buf_alloc(draw->gpuDevice, sizeof(BinningArg));
@@ -1002,7 +1035,7 @@ void DrawCall::processBinning(vk::Device *device, DrawCall *draw, BatchData *bat
 		groom_buf_free(barg_host);
 	}
 
-	groom_start(draw->gpuDevice, barg_dev, 0);
+	groom_start(draw->gpuDevice, barg_dev, draw->binningEntry, 0);
 
 	{
 		auto tile_host = groom_buf_alloc(draw->gpuDevice, sizeof(Tile) * draw->data->numTiles + sizeof(unsigned int) * numPrimitives);
@@ -1053,10 +1086,6 @@ void DrawCall::processPixels(vk::Device *device, const marl::Loan<DrawCall> &dra
 			auto &batch = data->batch;
 			MARL_SCOPED_EVENT("PIXEL draw %d, batch %d, cluster %d", draw->id, batch->id, cluster);
 #if USE_GROOM
-			size_t code_size;
-			auto *code_buf = draw->pixelRoutine.getCode(code_size);
-			groom_upload_kernel(draw->gpuDevice, code_buf, code_size);
-
 			groom_dev_buffer_t parg_dev;
 			{
 				auto parg_host = groom_buf_alloc(draw->gpuDevice, sizeof(PixelArg));
@@ -1078,7 +1107,7 @@ void DrawCall::processPixels(vk::Device *device, const marl::Loan<DrawCall> &dra
 			groom_dev_write_config(draw->gpuDevice, CTRL_RASTER_PRIM_ADDR_ADDRESS, groom_dev_buf_addr(draw->primitiveOutDevBuf));
 			groom_dev_write_config(draw->gpuDevice, CTRL_RASTER_PRIM_STRIDE_ADDRESS, sizeof(Primitive));
 
-			groom_start(draw->gpuDevice, parg_dev, 1);
+			groom_start(draw->gpuDevice, parg_dev, draw->pixelEntry, 1);
 
 			groom_mem_free(draw->gpuDevice, parg_dev);
 #else
@@ -1186,10 +1215,6 @@ int DrawCall::setupSolidTriangles(vk::Device *device, Triangle *triangles, Primi
 	auto polygon_dev = groom_mem_alloc(drawCall->gpuDevice, sizeof(Polygon) * count);
 	uploadToDevice(drawCall->gpuDevice, polygon_dev, &polygons[0], sizeof(Polygon) * count);
 
-	size_t code_size;
-	auto *code_buf = drawCall->setupRoutine.getCode(code_size);
-	groom_upload_kernel(drawCall->gpuDevice, code_buf, code_size);
-
 	groom_dev_buffer_t sarg_dev;
 	{
 		auto sarg_host = groom_buf_alloc(drawCall->gpuDevice, sizeof(SetupArg));
@@ -1209,7 +1234,7 @@ int DrawCall::setupSolidTriangles(vk::Device *device, Triangle *triangles, Primi
 		groom_buf_free(sarg_host);
 	}
 
-	groom_start(drawCall->gpuDevice, sarg_dev, 0);
+	groom_start(drawCall->gpuDevice, sarg_dev, drawCall->setupEntry, 0);
 
 	{
 		auto primitive_host = groom_buf_alloc(drawCall->gpuDevice, sizeof(Primitive));
