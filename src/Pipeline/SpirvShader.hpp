@@ -37,6 +37,7 @@
 #include <deque>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
@@ -975,6 +976,26 @@ public:
 class SpirvShader : public Spirv
 {
 public:
+	struct SamplerRequirement
+	{
+		uint32_t signature;
+		int32_t imageDescriptorSet;
+		int32_t imageBinding;
+		int32_t samplerDescriptorSet;
+		int32_t samplerBinding;
+		bool samplerRequired;
+
+		bool operator==(const SamplerRequirement &other) const
+		{
+			return signature == other.signature &&
+			       imageDescriptorSet == other.imageDescriptorSet &&
+			       imageBinding == other.imageBinding &&
+			       samplerDescriptorSet == other.samplerDescriptorSet &&
+			       samplerBinding == other.samplerBinding &&
+			       samplerRequired == other.samplerRequired;
+		}
+	};
+
 	SpirvShader(VkShaderStageFlagBits stage,
 	            const char *entryPointName,
 	            const SpirvBinary &insns,
@@ -988,6 +1009,9 @@ public:
 	// TODO(b/247020580): Move to SpirvRoutine
 	void emitProlog(SpirvRoutine *routine) const;
 	void emit(SpirvRoutine *routine, const RValue<SIMD::Int> &activeLaneMask, const RValue<SIMD::Int> &storesAndAtomicsMask, const vk::DescriptorSet::Bindings &descriptorSets, const vk::Attachments *attachments = nullptr, unsigned int multiSampleCount = 0) const;
+
+	void addSamplerRequirement(const SamplerRequirement &requirement) const;
+	std::vector<SamplerRequirement> getSamplerRequirements() const;
 	void emitEpilog(SpirvRoutine *routine) const;
 
 	bool getRobustBufferAccess() const { return robustBufferAccess; }
@@ -996,6 +1020,9 @@ public:
 	vk::Format getInputAttachmentFormat(const vk::Attachments &attachments, int32_t index) const;
 
 private:
+	mutable std::mutex samplerRequirementsMutex;
+	mutable std::vector<SamplerRequirement> samplerRequirements;
+
 	const bool robustBufferAccess;
 
 	// When reading from an input attachment, its format is needed.  When the fragment shader
@@ -1043,6 +1070,8 @@ class SpirvEmitter
 	using Span = Spirv::Span;
 
 public:
+	using ImageSampler = void(void *texture, void *uvsIn, void *texelOut, void *constants);
+
 	static void emit(const SpirvShader &shader,
 	                 SpirvRoutine *routine,
 	                 Spirv::Function::ID entryPoint,
@@ -1051,6 +1080,8 @@ public:
 	                 const vk::Attachments *attachments,
 	                 const vk::DescriptorSet::Bindings &descriptorSets,
 	                 unsigned int multiSampleCount);
+
+	static ImageSampler *getImageSampler(const vk::Device *device, uint32_t signature, uint32_t samplerId, uint32_t imageViewId);
 
 	// Helper for calling rr::Yield with result cast to an rr::Int.
 	enum class YieldResult
@@ -1556,8 +1587,6 @@ private:
 	static SIMD::Int AddSat(RValue<SIMD::Int> a, RValue<SIMD::Int> b);
 	static SIMD::UInt AddSat(RValue<SIMD::UInt> a, RValue<SIMD::UInt> b);
 
-	using ImageSampler = void(void *texture, void *uvsIn, void *texelOut, void *constants);
-	static ImageSampler *getImageSampler(const vk::Device *device, uint32_t signature, uint32_t samplerId, uint32_t imageViewId);
 	static std::shared_ptr<rr::Routine> emitSamplerRoutine(ImageInstructionSignature instruction, const Sampler &samplerState, uint32_t samplerId);
 	static std::shared_ptr<rr::Routine> emitWriteRoutine(ImageInstructionSignature instruction, const Sampler &samplerState, uint32_t samplerId);
 

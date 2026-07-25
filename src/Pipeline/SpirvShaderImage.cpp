@@ -332,6 +332,27 @@ uint32_t SpirvEmitter::ImageInstruction::getImageOperandsMask(InsnIterator insn)
 
 void SpirvEmitter::EmitImageSample(const ImageInstruction &instruction)
 {
+#if USE_GROOM
+	const auto &imageDecorations = shader.descriptorDecorations.at(instruction.imageId);
+	SpirvShader::SamplerRequirement requirement{
+		instruction.signature,
+		imageDecorations.DescriptorSet,
+		imageDecorations.Binding,
+		-1,
+		-1,
+		instruction.samplerId != 0,
+	};
+
+	if(instruction.samplerId != 0 && instruction.samplerId != instruction.imageId)
+	{
+		const auto &samplerDecorations = shader.descriptorDecorations.at(instruction.samplerId);
+		requirement.samplerDescriptorSet = samplerDecorations.DescriptorSet;
+		requirement.samplerBinding = samplerDecorations.Binding;
+	}
+
+	shader.addSamplerRequirement(requirement);
+#endif
+
 	auto &resultType = shader.getType(instruction.resultTypeId);
 	auto &result = createIntermediate(instruction.resultId, resultType.componentCount);
 	Array<SIMD::Float> out(4);

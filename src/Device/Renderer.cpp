@@ -114,6 +114,88 @@ static void uploadToDevice(groom_device_t dev, groom_dev_buffer_t devBuf, const 
 	groom_copy_buffer_to_device(devBuf, bounce, size, 0);
 	groom_buf_free(bounce);
 }
+
+static const vk::SampledImageDescriptor *getSampledImageDescriptors(
+    const vk::DescriptorSet::Array &descriptorSets,
+    const vk::PipelineLayout *pipelineLayout,
+    int32_t set,
+    int32_t binding,
+    uint32_t &count)
+{
+	if(set < 0 || binding < 0 || !pipelineLayout ||
+	   static_cast<uint32_t>(set) >= vk::MAX_BOUND_DESCRIPTOR_SETS ||
+	   descriptorSets[set] == nullptr)
+	{
+		count = 0;
+		return nullptr;
+	}
+
+	count = pipelineLayout->getDescriptorCount(set, binding);
+	auto *memory = descriptorSets[set]->getDataAddress() +
+	               pipelineLayout->getBindingOffset(set, binding);
+	return reinterpret_cast<const vk::SampledImageDescriptor *>(memory);
+}
+
+static void prepareSamplerRoutines(
+    vk::Device *device,
+    const sw::SpirvShader *shader,
+    const vk::PipelineLayout *pipelineLayout,
+    const vk::DescriptorSet::Array &descriptorSets)
+{
+	if(!shader || !pipelineLayout)
+	{
+		return;
+	}
+
+	for(const auto &requirement : shader->getSamplerRequirements())
+	{
+		uint32_t imageCount = 0;
+		const auto *images = getSampledImageDescriptors(
+		    descriptorSets, pipelineLayout,
+		    requirement.imageDescriptorSet, requirement.imageBinding,
+		    imageCount);
+
+		uint32_t samplerCount = 0;
+		const auto *samplers = getSampledImageDescriptors(
+		    descriptorSets, pipelineLayout,
+		    requirement.samplerDescriptorSet, requirement.samplerBinding,
+		    samplerCount);
+
+		for(uint32_t imageIndex = 0; imageIndex < imageCount; imageIndex++)
+		{
+			if(images[imageIndex].imageViewId == 0)
+			{
+				continue;
+			}
+
+			if(samplers)
+			{
+				for(uint32_t samplerIndex = 0; samplerIndex < samplerCount; samplerIndex++)
+				{
+					if(samplers[samplerIndex].samplerId != 0)
+					{
+						sw::SpirvEmitter::getImageSampler(
+						    device, requirement.signature,
+						    samplers[samplerIndex].samplerId,
+						    images[imageIndex].imageViewId);
+					}
+				}
+			}
+			else
+			{
+				if(requirement.samplerRequired && images[imageIndex].samplerId == 0)
+				{
+					continue;
+				}
+
+				sw::SpirvEmitter::getImageSampler(
+				    device, requirement.signature,
+				    images[imageIndex].samplerId,
+				    images[imageIndex].imageViewId);
+			}
+		}
+	}
+}
 #endif
 
 template<typename T>
@@ -381,12 +463,12 @@ void Renderer::draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState
 	}
 
 	const vk::Inputs &inputs = pipeline->getInputs();
+	const sw::SpirvShader *fragmentShader = pipeline->getShader(VK_SHADER_STAGE_FRAGMENT_BIT).get();
 
 	if(update)
 	{
 		MARL_SCOPED_EVENT("update");
 
-		const sw::SpirvShader *fragmentShader = pipeline->getShader(VK_SHADER_STAGE_FRAGMENT_BIT).get();
 		const sw::SpirvShader *vertexShader = pipeline->getShader(VK_SHADER_STAGE_VERTEX_BIT).get();
 
 		const vk::Attachments attachments = pipeline->getAttachments();
@@ -659,6 +741,9 @@ void Renderer::draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState
 
 	// Sampler cache
 	{
+#if USE_GROOM
+		prepareSamplerRoutines(device, fragmentShader, draw->fragmentPipelineLayout, draw->descriptorSetObjects);
+#endif
 		device->updateSamplingRoutineSnapshotCache();
 		const vk::Device::SamplingRoutineCache *cache = device->getSamplingRoutineCache();
 		data->samplerSnapshot = cache->getSamplerSnapshot();

@@ -1893,6 +1893,21 @@ SpirvShader::~SpirvShader()
 {
 }
 
+void SpirvShader::addSamplerRequirement(const SamplerRequirement &requirement) const
+{
+	std::lock_guard<std::mutex> lock(samplerRequirementsMutex);
+	if(std::find(samplerRequirements.begin(), samplerRequirements.end(), requirement) == samplerRequirements.end())
+	{
+		samplerRequirements.push_back(requirement);
+	}
+}
+
+std::vector<SpirvShader::SamplerRequirement> SpirvShader::getSamplerRequirements() const
+{
+	std::lock_guard<std::mutex> lock(samplerRequirementsMutex);
+	return samplerRequirements;
+}
+
 SpirvEmitter::SpirvEmitter(const SpirvShader &shader,
                            SpirvRoutine *routine,
                            Spirv::Function::ID entryPoint,

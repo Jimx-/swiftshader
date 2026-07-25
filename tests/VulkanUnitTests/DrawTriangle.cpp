@@ -71,7 +71,7 @@ int main()
 
 	tester.onCreateDescriptorSetLayouts([](DrawTester &tester) -> std::vector<vk::DescriptorSetLayoutBinding> {
 		vk::DescriptorSetLayoutBinding samplerLayoutBinding;
-		samplerLayoutBinding.binding = 1;
+		samplerLayoutBinding.binding = 0;
 		samplerLayoutBinding.descriptorCount = 1;
 		samplerLayoutBinding.descriptorType = vk::DescriptorType::eCombinedImageSampler;
 		samplerLayoutBinding.pImmutableSamplers = nullptr;
@@ -138,7 +138,7 @@ int main()
 		std::array<vk::WriteDescriptorSet, 1> descriptorWrites = {};
 
 		descriptorWrites[0].dstSet = descriptorSet;
-		descriptorWrites[0].dstBinding = 1;
+		descriptorWrites[0].dstBinding = 0;
 		descriptorWrites[0].dstArrayElement = 0;
 		descriptorWrites[0].descriptorType = vk::DescriptorType::eCombinedImageSampler;
 		descriptorWrites[0].descriptorCount = 1;

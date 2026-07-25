@@ -121,13 +121,21 @@ public:
 		template<typename Function>
 		std::shared_ptr<rr::Routine> getOrCreate(const Key &key, Function &&createRoutine)
 		{
-			auto it = snapshot.find(key);
-			if(it != snapshot.end()) { return it->second.routine; }
-
 			marl::lock lock(mutex);
 			if(auto existingRoutine = cache.lookup(key))
 			{
 				return existingRoutine;
+			}
+
+			auto it = snapshot.find(key);
+			if(it != snapshot.end())
+			{
+				// A snapshot can retain a routine after it has been evicted from
+				// the LRU. Reinsert it so the next snapshot rebuild keeps a
+				// routine which is actively required by a pending draw.
+				cache.add(key, it->second.routine);
+				snapshotNeedsUpdate = true;
+				return it->second.routine;
 			}
 
 			std::shared_ptr<rr::Routine> newRoutine = createRoutine(key);

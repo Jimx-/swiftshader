@@ -434,7 +434,6 @@ void DescriptorSetLayout::WriteDescriptorSet(Device *device, DescriptorSet *dstS
 				if(!binding.immutableSamplers)
 				{
 					sampledImage[i].samplerId = vk::Cast(update->sampler)->id;
-					sw::SpirvEmitter::getImageSampler(device, 0x80100, sampledImage[i].samplerId, imageView->id);
 				}
 			}
 
